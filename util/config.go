@@ -46,16 +46,16 @@ type KeyManagerConfig struct {
 
 	// local keys
 	LocalHMACKey        string `json:"local_hmac_key"`
-	LocalSidePrivateKey  string `json:"local_bsc_private_key"`
-	LocalMainPrivateKey  string `json:"local_eth_private_key"`
+	LocalSidePrivateKey  string `json:"local_side_private_key"`
+	LocalMainPrivateKey  string `json:"local_main_private_key"`
 	LocalAdminApiKey    string `json:"local_admin_api_key"`
 	LocalAdminSecretKey string `json:"local_admin_secret_key"`
 }
 
 type KeyConfig struct {
 	HMACKey        string `json:"hmac_key"`
-	SidePrivateKey  string `json:"bsc_private_key"`
-	MainPrivateKey  string `json:"eth_private_key"`
+	SidePrivateKey  string `json:"side_private_key"`
+	MainPrivateKey  string `json:"main_private_key"`
 	AdminApiKey    string `json:"admin_api_key"`
 	AdminSecretKey string `json:"admin_secret_key"`
 }
@@ -86,8 +86,8 @@ func (cfg KeyManagerConfig) Validate() {
 
 type TokenSecretKey struct {
 	Symbol        string `json:"symbol"`
-	SidePrivateKey string `json:"bsc_private_key"`
-	MainPrivateKey string `json:"eth_private_key"`
+	SidePrivateKey string `json:"side_private_key"`
+	MainPrivateKey string `json:"main_private_key"`
 }
 
 type DBConfig struct {
@@ -107,62 +107,62 @@ func (cfg DBConfig) Validate() {
 type ChainConfig struct {
 	BalanceMonitorInterval int64 `json:"balance_monitor_interval"`
 
-	SideObserverFetchInterval    int64  `json:"bsc_observer_fetch_interval"`
-	SideObserverFetchErrorInterval    int64  `json:"bsc_observer_fetch_error_interval"`
-	SidePeriodDiffHeight         int64 `json:"bsc_period_diff_height"`
-	SideStartHeight              int64  `json:"bsc_start_height"`
-	SideProvider                 string `json:"bsc_provider"`
-	SideConfirmNum               int64  `json:"bsc_confirm_num"`
-	SideSwapAgentAddr            string `json:"bsc_swap_agent_addr"`
-	SideExplorerUrl              string `json:"bsc_explorer_url"`
-	SideMaxTrackRetry            int64  `json:"bsc_max_track_retry"`
-	SideAlertThreshold           string `json:"bsc_alert_threshold"`
-	SideWaitMilliSecBetweenSwaps int64  `json:"bsc_wait_milli_sec_between_swaps"`
+	SideObserverFetchInterval    int64  `json:"side_observer_fetch_interval"`
+	SideObserverFetchErrorInterval    int64  `json:"side_observer_fetch_error_interval"`
+	SidePeriodDiffHeight         int64 `json:"side_period_diff_height"`
+	SideStartHeight              int64  `json:"side_start_height"`
+	SideProvider                 string `json:"side_provider"`
+	SideConfirmNum               int64  `json:"side_confirm_num"`
+	SideSwapAgentAddr            string `json:"side_swap_agent_addr"`
+	SideExplorerUrl              string `json:"side_explorer_url"`
+	SideMaxTrackRetry            int64  `json:"side_max_track_retry"`
+	SideAlertThreshold           string `json:"side_alert_threshold"`
+	SideWaitMilliSecBetweenSwaps int64  `json:"side_wait_milli_sec_between_swaps"`
 
-	MainObserverFetchInterval    int64  `json:"eth_observer_fetch_interval"`
-	MainObserverFetchErrorInterval    int64  `json:"eth_observer_fetch_error_interval"`
-	MainPeriodDiffHeight         int64 `json:"eth_period_diff_height"`
-	MainStartHeight              int64  `json:"eth_start_height"`
-	MainProvider                 string `json:"eth_provider"`
-	MainConfirmNum               int64  `json:"eth_confirm_num"`
-	MainSwapAgentAddr            string `json:"eth_swap_agent_addr"`
-	MainExplorerUrl              string `json:"eth_explorer_url"`
-	MainMaxTrackRetry            int64  `json:"eth_max_track_retry"`
-	MainAlertThreshold           string `json:"eth_alert_threshold"`
-	MainWaitMilliSecBetweenSwaps int64  `json:"eth_wait_milli_sec_between_swaps"`
+	MainObserverFetchInterval    int64  `json:"main_observer_fetch_interval"`
+	MainObserverFetchErrorInterval    int64  `json:"main_observer_fetch_error_interval"`
+	MainPeriodDiffHeight         int64 `json:"main_period_diff_height"`
+	MainStartHeight              int64  `json:"main_start_height"`
+	MainProvider                 string `json:"main_provider"`
+	MainConfirmNum               int64  `json:"main_confirm_num"`
+	MainSwapAgentAddr            string `json:"main_swap_agent_addr"`
+	MainExplorerUrl              string `json:"main_explorer_url"`
+	MainMaxTrackRetry            int64  `json:"main_max_track_retry"`
+	MainAlertThreshold           string `json:"main_alert_threshold"`
+	MainWaitMilliSecBetweenSwaps int64  `json:"main_wait_milli_sec_between_swaps"`
 }
 
 func (cfg ChainConfig) Validate() {
 	if cfg.SideStartHeight < 0 {
-		panic("bsc_start_height should not be less than 0")
+		panic("side_start_height should not be less than 0")
 	}
 	if cfg.SideProvider == "" {
-		panic("bsc_provider should not be empty")
+		panic("side_provider should not be empty")
 	}
 	if cfg.SideConfirmNum <= 0 {
-		panic("bsc_confirm_num should be larger than 0")
+		panic("side_confirm_num should be larger than 0")
 	}
 	if !ethcom.IsHexAddress(cfg.SideSwapAgentAddr) {
-		panic(fmt.Sprintf("invalid bsc_swap_contract_addr: %s", cfg.SideSwapAgentAddr))
+		panic(fmt.Sprintf("invalid side_swap_contract_addr: %s", cfg.SideSwapAgentAddr))
 	}
 	if cfg.SideMaxTrackRetry <= 0 {
-		panic("bsc_max_track_retry should be larger than 0")
+		panic("side_max_track_retry should be larger than 0")
 	}
 
 	if cfg.MainStartHeight < 0 {
-		panic("bsc_start_height should not be less than 0")
+		panic("side_start_height should not be less than 0")
 	}
 	if cfg.MainProvider == "" {
-		panic("bsc_provider should not be empty")
+		panic("side_provider should not be empty")
 	}
 	if !ethcom.IsHexAddress(cfg.MainSwapAgentAddr) {
-		panic(fmt.Sprintf("invalid eth_swap_contract_addr: %s", cfg.MainSwapAgentAddr))
+		panic(fmt.Sprintf("invalid main_swap_contract_addr: %s", cfg.MainSwapAgentAddr))
 	}
 	if cfg.MainConfirmNum <= 0 {
-		panic("bsc_confirm_num should be larger than 0")
+		panic("side_confirm_num should be larger than 0")
 	}
 	if cfg.MainMaxTrackRetry <= 0 {
-		panic("eth_max_track_retry should be larger than 0")
+		panic("main_max_track_retry should be larger than 0")
 	}
 }
 
