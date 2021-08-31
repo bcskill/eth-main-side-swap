@@ -105,32 +105,32 @@ func main() {
 	defer db.Close()
 	model.InitTables(db)
 
-	bscClient, err := ethclient.Dial(config.ChainConfig.SideProvider)
+	sideClient, err := ethclient.Dial(config.ChainConfig.SideProvider)
 	if err != nil {
 		panic("new eth client error")
 	}
 
-	ethClient, err := ethclient.Dial(config.ChainConfig.MainProvider)
+	mainClient, err := ethclient.Dial(config.ChainConfig.MainProvider)
 	if err != nil {
 		panic("new eth client error")
 	}
 
-	bscExecutor := executor.NewSideExecutor(bscClient, config.ChainConfig.SideSwapAgentAddr, config)
-	bscObserver := observer.NewObserver(db, config.ChainConfig.SideStartHeight, config.ChainConfig.SideConfirmNum, config, bscExecutor)
-	bscObserver.Start()
+	sideExecutor := executor.NewSideExecutor(sideClient, config.ChainConfig.SideSwapAgentAddr, config)
+	sideObserver := observer.NewObserver(db, config.ChainConfig.SideStartHeight, config.ChainConfig.SideConfirmNum, config, sideExecutor)
+	sideObserver.Start()
 
-	ethExecutor := executor.NewEthExecutor(ethClient, config.ChainConfig.MainSwapAgentAddr, config)
-	ethObserver := observer.NewObserver(db, config.ChainConfig.MainStartHeight, config.ChainConfig.MainConfirmNum, config, ethExecutor)
-	ethObserver.Start()
+	mainExecutor := executor.NewMainExecutor(mainClient, config.ChainConfig.MainSwapAgentAddr, config)
+	mainObserver := observer.NewObserver(db, config.ChainConfig.MainStartHeight, config.ChainConfig.MainConfirmNum, config, mainExecutor)
+	mainObserver.Start()
 
-	swapEngine, err := swap.NewSwapEngine(db, config, bscClient, ethClient)
+	swapEngine, err := swap.NewSwapEngine(db, config, sideClient, mainClient)
 	if err != nil {
 		panic(fmt.Sprintf("create swap engine error, err=%s", err.Error()))
 	}
 
 	swapEngine.Start()
 
-	swapPairEngine, err := swap.NewSwapPairEngine(db, config, bscClient, swapEngine)
+	swapPairEngine, err := swap.NewSwapPairEngine(db, config, sideClient, swapEngine)
 	if err != nil {
 		panic(fmt.Sprintf("create swap pair engine error, err=%s", err.Error()))
 	}

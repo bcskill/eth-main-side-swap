@@ -18,41 +18,41 @@ import (
 	"github.com/bcskill/eth-main-side-swap/util"
 )
 
-type EthExecutor struct {
+type MainExecutor struct {
 	Chain  string
 	Config *util.Config
 
 	SwapAgentAddr    ethcmm.Address
-	ethSwapAgentInst *contractabi.MainSwapAgent
+	mainSwapAgentInst *contractabi.MainSwapAgent
 	SwapAgentAbi     abi.ABI
 	Client           *ethclient.Client
 }
 
-func NewEthExecutor(ethClient *ethclient.Client, swapAddr string, config *util.Config) *EthExecutor {
+func NewMainExecutor(ethClient *ethclient.Client, swapAddr string, config *util.Config) *MainExecutor {
 	agentAbi, err := abi.JSON(strings.NewReader(agent.MainSwapAgentABI))
 	if err != nil {
 		panic("marshal abi error")
 	}
-	ethSwapAgentInst, err := contractabi.NewMainSwapAgent(ethcmm.HexToAddress(swapAddr), ethClient)
+	mainSwapAgentInst, err := contractabi.NewMainSwapAgent(ethcmm.HexToAddress(swapAddr), ethClient)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	return &EthExecutor{
+	return &MainExecutor{
 		Chain:            common.ChainMain,
 		Config:           config,
 		SwapAgentAddr:    ethcmm.HexToAddress(swapAddr),
-		ethSwapAgentInst: ethSwapAgentInst,
+		mainSwapAgentInst: mainSwapAgentInst,
 		SwapAgentAbi:     agentAbi,
 		Client:           ethClient,
 	}
 }
 
-func (e *EthExecutor) GetChainName() string {
+func (e *MainExecutor) GetChainName() string {
 	return e.Chain
 }
 
-func (e *EthExecutor) GetBlockAndTxEvents(height int64) (*common.BlockAndEventLogs, error) {
+func (e *MainExecutor) GetBlockAndTxEvents(height int64) (*common.BlockAndEventLogs, error) {
 	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -76,7 +76,7 @@ func (e *EthExecutor) GetBlockAndTxEvents(height int64) (*common.BlockAndEventLo
 	}, nil
 }
 
-func (e *EthExecutor) GetLogs(header *types.Header) ([]interface{}, error) {
+func (e *MainExecutor) GetLogs(header *types.Header) ([]interface{}, error) {
 	startEvs, err := e.GetSwapStartLogs(header)
 	if err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func (e *EthExecutor) GetLogs(header *types.Header) ([]interface{}, error) {
 
 }
 
-func (e *EthExecutor) GetSwapPairRegisterLogs(header *types.Header) ([]interface{}, error) {
+func (e *MainExecutor) GetSwapPairRegisterLogs(header *types.Header) ([]interface{}, error) {
 	topics := [][]ethcmm.Hash{{SwapPairRegisterEventHash}}
 
 	blockHash := header.Hash()
@@ -128,7 +128,7 @@ func (e *EthExecutor) GetSwapPairRegisterLogs(header *types.Header) ([]interface
 	return eventModels, nil
 }
 
-func (e *EthExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, error) {
+func (e *MainExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, error) {
 	topics := [][]ethcmm.Hash{{Main2SideSwapStartedEventHash}}
 
 	blockHash := header.Hash()
