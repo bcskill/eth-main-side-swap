@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	agent "github.com/binance-chain/bsc-eth-swap/abi"
-	contractabi "github.com/binance-chain/bsc-eth-swap/abi"
-	"github.com/binance-chain/bsc-eth-swap/common"
-	"github.com/binance-chain/bsc-eth-swap/util"
+	agent "github.com/bcskill/eth-main-side-swap/abi"
+	contractabi "github.com/bcskill/eth-main-side-swap/abi"
+	"github.com/bcskill/eth-main-side-swap/common"
+	"github.com/bcskill/eth-main-side-swap/util"
 )
 
 type EthExecutor struct {
@@ -23,23 +23,23 @@ type EthExecutor struct {
 	Config *util.Config
 
 	SwapAgentAddr    ethcmm.Address
-	ethSwapAgentInst *contractabi.ETHSwapAgent
+	ethSwapAgentInst *contractabi.MainSwapAgent
 	SwapAgentAbi     abi.ABI
 	Client           *ethclient.Client
 }
 
 func NewEthExecutor(ethClient *ethclient.Client, swapAddr string, config *util.Config) *EthExecutor {
-	agentAbi, err := abi.JSON(strings.NewReader(agent.ETHSwapAgentABI))
+	agentAbi, err := abi.JSON(strings.NewReader(agent.MainSwapAgentABI))
 	if err != nil {
 		panic("marshal abi error")
 	}
-	ethSwapAgentInst, err := contractabi.NewETHSwapAgent(ethcmm.HexToAddress(swapAddr), ethClient)
+	ethSwapAgentInst, err := contractabi.NewMainSwapAgent(ethcmm.HexToAddress(swapAddr), ethClient)
 	if err != nil {
 		panic(err.Error())
 	}
 
 	return &EthExecutor{
-		Chain:            common.ChainETH,
+		Chain:            common.ChainMain,
 		Config:           config,
 		SwapAgentAddr:    ethcmm.HexToAddress(swapAddr),
 		ethSwapAgentInst: ethSwapAgentInst,
@@ -129,7 +129,7 @@ func (e *EthExecutor) GetSwapPairRegisterLogs(header *types.Header) ([]interface
 }
 
 func (e *EthExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, error) {
-	topics := [][]ethcmm.Hash{{ETH2BSCSwapStartedEventHash}}
+	topics := [][]ethcmm.Hash{{Main2SideSwapStartedEventHash}}
 
 	blockHash := header.Hash()
 
@@ -147,7 +147,7 @@ func (e *EthExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, err
 
 	eventModels := make([]interface{}, 0, len(logs))
 	for _, log := range logs {
-		event, err := ParseETH2BSCSwapStartEvent(&e.SwapAgentAbi, &log)
+		event, err := ParseMain2SideSwapStartEvent(&e.SwapAgentAbi, &log)
 		if err != nil {
 			util.Logger.Errorf("parse event log error, er=%s", err.Error())
 			continue
@@ -159,7 +159,7 @@ func (e *EthExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, err
 
 		eventModel := event.ToSwapStartTxLog(&log)
 		eventModel.Chain = e.Chain
-		util.Logger.Debugf("Found ETH2BSC swap, txHash: %s, token address: %s, amount: %s, fee amount: %s",
+		util.Logger.Debugf("Found Main2Side swap, txHash: %s, token address: %s, amount: %s, fee amount: %s",
 			eventModel.TxHash, eventModel.TokenAddr, eventModel.Amount, eventModel.FeeAmount)
 		eventModels = append(eventModels, eventModel)
 	}

@@ -13,10 +13,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 
-	"github.com/binance-chain/bsc-eth-swap/model"
-	"github.com/binance-chain/bsc-eth-swap/swap"
-	"github.com/binance-chain/bsc-eth-swap/util"
-	cmm "github.com/binance-chain/bsc-eth-swap/common"
+	"github.com/bcskill/eth-main-side-swap/model"
+	"github.com/bcskill/eth-main-side-swap/swap"
+	"github.com/bcskill/eth-main-side-swap/util"
+	cmm "github.com/bcskill/eth-main-side-swap/common"
 )
 
 const (
@@ -216,7 +216,7 @@ func (admin *Admin) WithdrawToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func withdrawCheck(withdraw *withdrawTokenRequest) error {
-	if strings.ToUpper(withdraw.Chain) != cmm.ChainBSC && strings.ToUpper(withdraw.Chain) != cmm.ChainETH {
+	if strings.ToUpper(withdraw.Chain) != cmm.ChainSide && strings.ToUpper(withdraw.Chain) != cmm.ChainMain {
 		return fmt.Errorf("bsc_token_contract_addr can't be empty")
 	}
 	if !common.IsHexAddress(withdraw.TokenAddr) {

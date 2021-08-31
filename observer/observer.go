@@ -7,10 +7,10 @@ import (
 
 	"github.com/jinzhu/gorm"
 
-	"github.com/binance-chain/bsc-eth-swap/common"
-	"github.com/binance-chain/bsc-eth-swap/executor"
-	"github.com/binance-chain/bsc-eth-swap/model"
-	"github.com/binance-chain/bsc-eth-swap/util"
+	"github.com/bcskill/eth-main-side-swap/common"
+	"github.com/bcskill/eth-main-side-swap/executor"
+	"github.com/bcskill/eth-main-side-swap/model"
+	"github.com/bcskill/eth-main-side-swap/util"
 )
 
 type Observer struct {
@@ -49,33 +49,33 @@ func (ob *Observer) Start() {
 }
 
 func (ob *Observer) fetchErrorSleep() {
-	if ob.Executor.GetChainName() == common.ChainBSC {
-		time.Sleep(time.Duration(ob.Config.ChainConfig.BSCObserverFetchErrorInterval) * time.Second)
-	} else if ob.Executor.GetChainName() == common.ChainETH {
-		time.Sleep(time.Duration(ob.Config.ChainConfig.ETHObserverFetchErrorInterval) * time.Second)
+	if ob.Executor.GetChainName() == common.ChainSide {
+		time.Sleep(time.Duration(ob.Config.ChainConfig.SideObserverFetchErrorInterval) * time.Second)
+	} else if ob.Executor.GetChainName() == common.ChainMain {
+		time.Sleep(time.Duration(ob.Config.ChainConfig.MainObserverFetchErrorInterval) * time.Second)
 	}
 
 }
 
 func (ob *Observer) fetchSleep() {
-	if ob.Executor.GetChainName() == common.ChainBSC {
-		time.Sleep(time.Duration(ob.Config.ChainConfig.BSCObserverFetchInterval) * time.Second)
-	} else if ob.Executor.GetChainName() == common.ChainETH {
-		time.Sleep(time.Duration(ob.Config.ChainConfig.ETHObserverFetchInterval) * time.Second)
+	if ob.Executor.GetChainName() == common.ChainSide {
+		time.Sleep(time.Duration(ob.Config.ChainConfig.SideObserverFetchInterval) * time.Second)
+	} else if ob.Executor.GetChainName() == common.ChainMain {
+		time.Sleep(time.Duration(ob.Config.ChainConfig.MainObserverFetchInterval) * time.Second)
 	}
 
 }
 
 func (ob *Observer) periodDiffHeight() int64{
-	if ob.Executor.GetChainName() == common.ChainBSC {
-		return ob.Config.ChainConfig.BSCPeriodDiffHeight
-	} else if ob.Executor.GetChainName() == common.ChainETH {
-		return ob.Config.ChainConfig.ETHPeriodDiffHeight
+	if ob.Executor.GetChainName() == common.ChainSide {
+		return ob.Config.ChainConfig.SidePeriodDiffHeight
+	} else if ob.Executor.GetChainName() == common.ChainMain {
+		return ob.Config.ChainConfig.MainPeriodDiffHeight
 	}
 	return 0
 }
 
-// Fetch starts the main routine for fetching blocks of BSC
+// Fetch starts the main routine for fetching blocks of Side
 func (ob *Observer) Fetch(startHeight int64) {
 	for {
 		curBlockLog, err := ob.GetCurrentBlockLog()
@@ -117,7 +117,7 @@ func (ob *Observer) Fetch(startHeight int64) {
 	}
 }
 
-// fetchBlock fetches the next block of BSC and saves it to database. if the next block hash
+// fetchBlock fetches the next block of Side and saves it to database. if the next block hash
 // does not match to the parent hash, the current block will be deleted for there is a fork.
 func (ob *Observer) fetchBlock(curHeight, nextHeight int64, curBlockHash string) error {
 	blockAndEventLogs, err := ob.Executor.GetBlockAndTxEvents(nextHeight)

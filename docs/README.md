@@ -12,7 +12,7 @@ Please refer to [spec](./spec.md)
 - `common`: Defines const variables.
 - `config`: Example configuration.
 - `docs`: Specification.
-- `executor`: Implement methods to interact with BSC and ETH.
+- `executor`: Implement methods to interact with Side and Main.
 - `model`: Define db table schema.
 - `observer`: Implement blockchain data synchronization.
 - `swap`: Implement swap engine.

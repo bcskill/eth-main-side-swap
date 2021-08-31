@@ -5,7 +5,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
-	"github.com/binance-chain/bsc-eth-swap/common"
+	"github.com/bcskill/eth-main-side-swap/common"
 )
 
 type SwapPair struct {

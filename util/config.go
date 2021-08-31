@@ -7,7 +7,7 @@ import (
 
 	ethcom "github.com/ethereum/go-ethereum/common"
 
-	"github.com/binance-chain/bsc-eth-swap/common"
+	"github.com/bcskill/eth-main-side-swap/common"
 )
 
 type Config struct {
@@ -46,16 +46,16 @@ type KeyManagerConfig struct {
 
 	// local keys
 	LocalHMACKey        string `json:"local_hmac_key"`
-	LocalBSCPrivateKey  string `json:"local_bsc_private_key"`
-	LocalETHPrivateKey  string `json:"local_eth_private_key"`
+	LocalSidePrivateKey  string `json:"local_bsc_private_key"`
+	LocalMainPrivateKey  string `json:"local_eth_private_key"`
 	LocalAdminApiKey    string `json:"local_admin_api_key"`
 	LocalAdminSecretKey string `json:"local_admin_secret_key"`
 }
 
 type KeyConfig struct {
 	HMACKey        string `json:"hmac_key"`
-	BSCPrivateKey  string `json:"bsc_private_key"`
-	ETHPrivateKey  string `json:"eth_private_key"`
+	SidePrivateKey  string `json:"bsc_private_key"`
+	MainPrivateKey  string `json:"eth_private_key"`
 	AdminApiKey    string `json:"admin_api_key"`
 	AdminSecretKey string `json:"admin_secret_key"`
 }
@@ -64,10 +64,10 @@ func (cfg KeyManagerConfig) Validate() {
 	if cfg.KeyType == common.LocalPrivateKey && len(cfg.LocalHMACKey) == 0 {
 		panic("missing local hmac key")
 	}
-	if cfg.KeyType == common.LocalPrivateKey && len(cfg.LocalBSCPrivateKey) == 0 {
+	if cfg.KeyType == common.LocalPrivateKey && len(cfg.LocalSidePrivateKey) == 0 {
 		panic("missing local bsc private key")
 	}
-	if cfg.KeyType == common.LocalPrivateKey && len(cfg.LocalETHPrivateKey) == 0 {
+	if cfg.KeyType == common.LocalPrivateKey && len(cfg.LocalMainPrivateKey) == 0 {
 		panic("missing local eth private key")
 	}
 
@@ -86,8 +86,8 @@ func (cfg KeyManagerConfig) Validate() {
 
 type TokenSecretKey struct {
 	Symbol        string `json:"symbol"`
-	BSCPrivateKey string `json:"bsc_private_key"`
-	ETHPrivateKey string `json:"eth_private_key"`
+	SidePrivateKey string `json:"bsc_private_key"`
+	MainPrivateKey string `json:"eth_private_key"`
 }
 
 type DBConfig struct {
@@ -107,61 +107,61 @@ func (cfg DBConfig) Validate() {
 type ChainConfig struct {
 	BalanceMonitorInterval int64 `json:"balance_monitor_interval"`
 
-	BSCObserverFetchInterval    int64  `json:"bsc_observer_fetch_interval"`
-	BSCObserverFetchErrorInterval    int64  `json:"bsc_observer_fetch_error_interval"`
-	BSCPeriodDiffHeight         int64 `json:"bsc_period_diff_height"`
-	BSCStartHeight              int64  `json:"bsc_start_height"`
-	BSCProvider                 string `json:"bsc_provider"`
-	BSCConfirmNum               int64  `json:"bsc_confirm_num"`
-	BSCSwapAgentAddr            string `json:"bsc_swap_agent_addr"`
-	BSCExplorerUrl              string `json:"bsc_explorer_url"`
-	BSCMaxTrackRetry            int64  `json:"bsc_max_track_retry"`
-	BSCAlertThreshold           string `json:"bsc_alert_threshold"`
-	BSCWaitMilliSecBetweenSwaps int64  `json:"bsc_wait_milli_sec_between_swaps"`
+	SideObserverFetchInterval    int64  `json:"bsc_observer_fetch_interval"`
+	SideObserverFetchErrorInterval    int64  `json:"bsc_observer_fetch_error_interval"`
+	SidePeriodDiffHeight         int64 `json:"bsc_period_diff_height"`
+	SideStartHeight              int64  `json:"bsc_start_height"`
+	SideProvider                 string `json:"bsc_provider"`
+	SideConfirmNum               int64  `json:"bsc_confirm_num"`
+	SideSwapAgentAddr            string `json:"bsc_swap_agent_addr"`
+	SideExplorerUrl              string `json:"bsc_explorer_url"`
+	SideMaxTrackRetry            int64  `json:"bsc_max_track_retry"`
+	SideAlertThreshold           string `json:"bsc_alert_threshold"`
+	SideWaitMilliSecBetweenSwaps int64  `json:"bsc_wait_milli_sec_between_swaps"`
 
-	ETHObserverFetchInterval    int64  `json:"eth_observer_fetch_interval"`
-	ETHObserverFetchErrorInterval    int64  `json:"eth_observer_fetch_error_interval"`
-	ETHPeriodDiffHeight         int64 `json:"eth_period_diff_height"`
-	ETHStartHeight              int64  `json:"eth_start_height"`
-	ETHProvider                 string `json:"eth_provider"`
-	ETHConfirmNum               int64  `json:"eth_confirm_num"`
-	ETHSwapAgentAddr            string `json:"eth_swap_agent_addr"`
-	ETHExplorerUrl              string `json:"eth_explorer_url"`
-	ETHMaxTrackRetry            int64  `json:"eth_max_track_retry"`
-	ETHAlertThreshold           string `json:"eth_alert_threshold"`
-	ETHWaitMilliSecBetweenSwaps int64  `json:"eth_wait_milli_sec_between_swaps"`
+	MainObserverFetchInterval    int64  `json:"eth_observer_fetch_interval"`
+	MainObserverFetchErrorInterval    int64  `json:"eth_observer_fetch_error_interval"`
+	MainPeriodDiffHeight         int64 `json:"eth_period_diff_height"`
+	MainStartHeight              int64  `json:"eth_start_height"`
+	MainProvider                 string `json:"eth_provider"`
+	MainConfirmNum               int64  `json:"eth_confirm_num"`
+	MainSwapAgentAddr            string `json:"eth_swap_agent_addr"`
+	MainExplorerUrl              string `json:"eth_explorer_url"`
+	MainMaxTrackRetry            int64  `json:"eth_max_track_retry"`
+	MainAlertThreshold           string `json:"eth_alert_threshold"`
+	MainWaitMilliSecBetweenSwaps int64  `json:"eth_wait_milli_sec_between_swaps"`
 }
 
 func (cfg ChainConfig) Validate() {
-	if cfg.BSCStartHeight < 0 {
+	if cfg.SideStartHeight < 0 {
 		panic("bsc_start_height should not be less than 0")
 	}
-	if cfg.BSCProvider == "" {
+	if cfg.SideProvider == "" {
 		panic("bsc_provider should not be empty")
 	}
-	if cfg.BSCConfirmNum <= 0 {
+	if cfg.SideConfirmNum <= 0 {
 		panic("bsc_confirm_num should be larger than 0")
 	}
-	if !ethcom.IsHexAddress(cfg.BSCSwapAgentAddr) {
-		panic(fmt.Sprintf("invalid bsc_swap_contract_addr: %s", cfg.BSCSwapAgentAddr))
+	if !ethcom.IsHexAddress(cfg.SideSwapAgentAddr) {
+		panic(fmt.Sprintf("invalid bsc_swap_contract_addr: %s", cfg.SideSwapAgentAddr))
 	}
-	if cfg.BSCMaxTrackRetry <= 0 {
+	if cfg.SideMaxTrackRetry <= 0 {
 		panic("bsc_max_track_retry should be larger than 0")
 	}
 
-	if cfg.ETHStartHeight < 0 {
+	if cfg.MainStartHeight < 0 {
 		panic("bsc_start_height should not be less than 0")
 	}
-	if cfg.ETHProvider == "" {
+	if cfg.MainProvider == "" {
 		panic("bsc_provider should not be empty")
 	}
-	if !ethcom.IsHexAddress(cfg.ETHSwapAgentAddr) {
-		panic(fmt.Sprintf("invalid eth_swap_contract_addr: %s", cfg.ETHSwapAgentAddr))
+	if !ethcom.IsHexAddress(cfg.MainSwapAgentAddr) {
+		panic(fmt.Sprintf("invalid eth_swap_contract_addr: %s", cfg.MainSwapAgentAddr))
 	}
-	if cfg.ETHConfirmNum <= 0 {
+	if cfg.MainConfirmNum <= 0 {
 		panic("bsc_confirm_num should be larger than 0")
 	}
-	if cfg.ETHMaxTrackRetry <= 0 {
+	if cfg.MainMaxTrackRetry <= 0 {
 		panic("eth_max_track_retry should be larger than 0")
 	}
 }

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	sabi "github.com/binance-chain/bsc-eth-swap/abi"
+	sabi "github.com/bcskill/eth-main-side-swap/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core"
 
@@ -20,9 +20,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jinzhu/gorm"
 
-	"github.com/binance-chain/bsc-eth-swap/common"
-	"github.com/binance-chain/bsc-eth-swap/model"
-	"github.com/binance-chain/bsc-eth-swap/util"
+	"github.com/bcskill/eth-main-side-swap/common"
+	"github.com/bcskill/eth-main-side-swap/model"
+	"github.com/bcskill/eth-main-side-swap/util"
 )
 
 func (engine *SwapEngine) getRetrySwapHMAC(retrySwap *model.RetrySwap) string {
@@ -82,10 +82,10 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 		return nil, fmt.Errorf("invalid swap amount: %s", retrySwap.Amount)
 	}
 
-	if retrySwap.Direction == SwapEth2BSC {
+	if retrySwap.Direction == SwapEth2Side {
 		bscClientMutex.Lock()
 		defer bscClientMutex.Unlock()
-		data, err := abiEncodeFillETH2BSCSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(retrySwap.Sponsor), amount, engine.bscSwapAgentABI)
+		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(retrySwap.Sponsor), amount, engine.SideSwapAgentABI)
 		if err != nil {
 			return nil, err
 		}
@@ -107,15 +107,15 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 		}
 		err = engine.bscClient.SendTransaction(context.Background(), signedTx)
 		if err != nil {
-			util.Logger.Errorf("broadcast tx to BSC error: %s", err.Error())
+			util.Logger.Errorf("broadcast tx to Side error: %s", err.Error())
 			return nil, err
 		}
-		util.Logger.Infof("Send transaction to BSC, %s/%s", engine.config.ChainConfig.BSCExplorerUrl, signedTx.Hash().String())
+		util.Logger.Infof("Send transaction to Side, %s/%s", engine.config.ChainConfig.SideExplorerUrl, signedTx.Hash().String())
 		return retrySwapTx, nil
 	} else {
 		ethClientMutex.Lock()
 		defer ethClientMutex.Unlock()
-		data, err := abiEncodeFillBSC2ETHSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(retrySwap.Sponsor), amount, engine.ethSwapAgentABI)
+		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(retrySwap.Sponsor), amount, engine.MainSwapAgentABI)
 		signedTx, err := buildSignedTransaction(engine.ethSwapAgent, engine.ethClient, data, engine.ethPrivateKey)
 		if err != nil {
 			return nil, err
@@ -133,10 +133,10 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 		}
 		err = engine.ethClient.SendTransaction(context.Background(), signedTx)
 		if err != nil {
-			util.Logger.Errorf("broadcast tx to ETH error: %s", err.Error())
+			util.Logger.Errorf("broadcast tx to Main error: %s", err.Error())
 			return nil, err
 		} else {
-			util.Logger.Infof("Send transaction to ETH, %s/%s", engine.config.ChainConfig.ETHExplorerUrl, signedTx.Hash().String())
+			util.Logger.Infof("Send transaction to Main, %s/%s", engine.config.ChainConfig.MainExplorerUrl, signedTx.Hash().String())
 		}
 		return retrySwapTx, nil
 	}
@@ -279,7 +279,7 @@ func (engine *SwapEngine) trackRetrySwapTxDaemon() {
 			time.Sleep(SleepTime * time.Second)
 
 			retrySwapTxs := make([]model.RetrySwapTx, 0)
-			engine.db.Where("status = ? and track_retry_counter >= ?", model.FillRetryTxSent, engine.config.ChainConfig.ETHMaxTrackRetry).
+			engine.db.Where("status = ? and track_retry_counter >= ?", model.FillRetryTxSent, engine.config.ChainConfig.MainMaxTrackRetry).
 				Order("id asc").Limit(TrackSentTxBatchSize).Find(&retrySwapTxs)
 
 			if len(retrySwapTxs) > 0 {
@@ -287,11 +287,11 @@ func (engine *SwapEngine) trackRetrySwapTxDaemon() {
 			}
 
 			for _, retrySwapTx := range retrySwapTxs {
-				chainName := "ETH"
-				maxRetry := engine.config.ChainConfig.ETHMaxTrackRetry
-				if retrySwapTx.Direction == SwapEth2BSC {
-					chainName = "BSC"
-					maxRetry = engine.config.ChainConfig.BSCMaxTrackRetry
+				chainName := "Main"
+				maxRetry := engine.config.ChainConfig.MainMaxTrackRetry
+				if retrySwapTx.Direction == SwapEth2Side {
+					chainName = "Side"
+					maxRetry = engine.config.ChainConfig.SideMaxTrackRetry
 				}
 				util.Logger.Errorf("The retry fill tx is sent, however, after %d seconds its status is still uncertain. Mark tx as missing and mark swap as failed, chain %s, fill hash %s", SleepTime*maxRetry, chainName, retrySwapTx.RetryFillSwapTxHash)
 				util.SendTelegramMessage(fmt.Sprintf("The retry fill tx is sent, however, after %d seconds its status is still uncertain. Mark tx as missing and mark swap as failed, chain %s, start hash %s", SleepTime*maxRetry, chainName, retrySwapTx.RetryFillSwapTxHash))
@@ -331,7 +331,7 @@ func (engine *SwapEngine) trackRetrySwapTxDaemon() {
 			time.Sleep(SleepTime * time.Second)
 
 			retrySwapTxs := make([]model.RetrySwapTx, 0)
-			engine.db.Where("status = ? and track_retry_counter < ?", model.FillRetryTxSent, engine.config.ChainConfig.ETHMaxTrackRetry).
+			engine.db.Where("status = ? and track_retry_counter < ?", model.FillRetryTxSent, engine.config.ChainConfig.MainMaxTrackRetry).
 				Order("id asc").Limit(TrackSentTxBatchSize).Find(&retrySwapTxs)
 
 			if len(retrySwapTxs) > 0 {
@@ -344,12 +344,12 @@ func (engine *SwapEngine) trackRetrySwapTxDaemon() {
 
 				var client *ethclient.Client
 				var chainName string
-				if retrySwapTx.Direction == SwapBSC2Eth {
+				if retrySwapTx.Direction == SwapSide2Eth {
 					client = engine.ethClient
-					chainName = "ETH"
+					chainName = "Main"
 				} else {
 					client = engine.bscClient
-					chainName = "BSC"
+					chainName = "Side"
 				}
 				var txRecipient *types.Receipt
 				queryTxStatusErr := func() error {
@@ -363,7 +363,7 @@ func (engine *SwapEngine) trackRetrySwapTxDaemon() {
 						util.Logger.Debugf("%s, query tx failed: %s", chainName, err.Error())
 						return err
 					}
-					if block.Number().Int64() < txRecipient.BlockNumber.Int64()+engine.config.ChainConfig.ETHConfirmNum {
+					if block.Number().Int64() < txRecipient.BlockNumber.Int64()+engine.config.ChainConfig.MainConfirmNum {
 						return fmt.Errorf("%s, swap tx is still not finalized", chainName)
 					}
 					return nil
@@ -504,11 +504,11 @@ func (engine *SwapEngine) WithdrawToken(chain string, tokenAddr, recipient ethco
 	emptyAddr := ethcom.Address{}
 	privateKey := engine.bscPrivateKey
 	client := engine.bscClient
-	explorerUrl := engine.config.ChainConfig.BSCExplorerUrl
-	if chain == common.ChainETH {
+	explorerUrl := engine.config.ChainConfig.SideExplorerUrl
+	if chain == common.ChainMain {
 		privateKey = engine.ethPrivateKey
 		client = engine.ethClient
-		explorerUrl = engine.config.ChainConfig.ETHExplorerUrl
+		explorerUrl = engine.config.ChainConfig.MainExplorerUrl
 		ethClientMutex.Lock()
 		defer ethClientMutex.Unlock()
 	} else {

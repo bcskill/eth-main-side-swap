@@ -17,10 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jinzhu/gorm"
 
-	sabi "github.com/binance-chain/bsc-eth-swap/abi"
-	"github.com/binance-chain/bsc-eth-swap/common"
-	"github.com/binance-chain/bsc-eth-swap/model"
-	"github.com/binance-chain/bsc-eth-swap/util"
+	sabi "github.com/bcskill/eth-main-side-swap/abi"
+	"github.com/bcskill/eth-main-side-swap/common"
+	"github.com/bcskill/eth-main-side-swap/model"
+	"github.com/bcskill/eth-main-side-swap/util"
 )
 
 // NewSwapEngine returns the swapEngine instance
@@ -33,10 +33,10 @@ func NewSwapEngine(db *gorm.DB, cfg *util.Config, bscClient, ethClient *ethclien
 		return nil, err
 	}
 	bscContractAddrToEthContractAddr := make(map[ethcom.Address]ethcom.Address)
-	ethContractAddrToBscContractAddr := make(map[ethcom.Address]ethcom.Address)
+	ethContractAddrToSideContractAddr := make(map[ethcom.Address]ethcom.Address)
 	for _, token := range pairs {
 		bscContractAddrToEthContractAddr[ethcom.HexToAddress(token.BEP20Addr)] = ethcom.HexToAddress(token.ERC20Addr)
-		ethContractAddrToBscContractAddr[ethcom.HexToAddress(token.ERC20Addr)] = ethcom.HexToAddress(token.BEP20Addr)
+		ethContractAddrToSideContractAddr[ethcom.HexToAddress(token.ERC20Addr)] = ethcom.HexToAddress(token.BEP20Addr)
 	}
 
 	keyConfig, err := GetKeyConfig(cfg)
@@ -44,12 +44,12 @@ func NewSwapEngine(db *gorm.DB, cfg *util.Config, bscClient, ethClient *ethclien
 		return nil, err
 	}
 
-	bscPrivateKey, _, err := BuildKeys(keyConfig.BSCPrivateKey)
+	bscPrivateKey, _, err := BuildKeys(keyConfig.SidePrivateKey)
 	if err != nil {
 		return nil, err
 	}
 
-	ethPrivateKey, _, err := BuildKeys(keyConfig.ETHPrivateKey)
+	ethPrivateKey, _, err := BuildKeys(keyConfig.MainPrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -63,12 +63,12 @@ func NewSwapEngine(db *gorm.DB, cfg *util.Config, bscClient, ethClient *ethclien
 	if err != nil {
 		return nil, err
 	}
-	ethSwapAgentAbi, err := abi.JSON(strings.NewReader(sabi.ETHSwapAgentABI))
+	MainSwapAgentABI, err := abi.JSON(strings.NewReader(sabi.MainSwapAgentABI))
 	if err != nil {
 		return nil, err
 	}
 
-	bscSwapAgentAbi, err := abi.JSON(strings.NewReader(sabi.BSCSwapAgentABI))
+	SideSwapAgentABI, err := abi.JSON(strings.NewReader(sabi.SideSwapAgentABI))
 	if err != nil {
 		return nil, err
 	}
@@ -85,11 +85,11 @@ func NewSwapEngine(db *gorm.DB, cfg *util.Config, bscClient, ethClient *ethclien
 		ethChainID:             ethChainID.Int64(),
 		swapPairsFromERC20Addr: swapPairInstances,
 		bep20ToERC20:           bscContractAddrToEthContractAddr,
-		erc20ToBEP20:           ethContractAddrToBscContractAddr,
-		ethSwapAgentABI:        &ethSwapAgentAbi,
-		bscSwapAgentABI:        &bscSwapAgentAbi,
-		ethSwapAgent:           ethcom.HexToAddress(cfg.ChainConfig.ETHSwapAgentAddr),
-		bscSwapAgent:           ethcom.HexToAddress(cfg.ChainConfig.BSCSwapAgentAddr),
+		erc20ToBEP20:           ethContractAddrToSideContractAddr,
+		mainSwapAgentABI:        &mainSwapAgentAbi,
+		sideSwapAgentABI:        &sideSwapAgentAbi,
+		ethSwapAgent:           ethcom.HexToAddress(cfg.ChainConfig.MainSwapAgentAddr),
+		bscSwapAgent:           ethcom.HexToAddress(cfg.ChainConfig.SideSwapAgentAddr),
 	}
 
 	return swapEngine, nil
@@ -98,8 +98,8 @@ func NewSwapEngine(db *gorm.DB, cfg *util.Config, bscClient, ethClient *ethclien
 func (engine *SwapEngine) Start() {
 	go engine.monitorSwapRequestDaemon()
 	go engine.confirmSwapRequestDaemon()
-	go engine.swapInstanceDaemon(SwapEth2BSC)
-	go engine.swapInstanceDaemon(SwapBSC2Eth)
+	go engine.swapInstanceDaemon(SwapEth2Side)
+	go engine.swapInstanceDaemon(SwapSide2Eth)
 	go engine.trackSwapTxDaemon()
 	go engine.retryFailedSwapsDaemon()
 	go engine.trackRetrySwapTxDaemon()
@@ -169,9 +169,9 @@ func (engine *SwapEngine) createSwap(txEventLog *model.SwapStartTxLog) *model.Sw
 	sponsor := txEventLog.FromAddress
 	amount := txEventLog.Amount
 	swapStartTxHash := txEventLog.TxHash
-	swapDirection := SwapEth2BSC
-	if txEventLog.Chain == common.ChainBSC {
-		swapDirection = SwapBSC2Eth
+	swapDirection := SwapEth2Side
+	if txEventLog.Chain == common.ChainSide {
+		swapDirection = SwapSide2Eth
 	}
 
 	var bep20Addr ethcom.Address
@@ -181,7 +181,7 @@ func (engine *SwapEngine) createSwap(txEventLog *model.SwapStartTxLog) *model.Sw
 	var symbol string
 	swapStatus := SwapQuoteRejected
 	err := func() error {
-		if txEventLog.Chain == common.ChainETH {
+		if txEventLog.Chain == common.ChainMain {
 			erc20Addr = ethcom.HexToAddress(txEventLog.TokenAddr)
 			if bep20Addr, ok = engine.erc20ToBEP20[ethcom.HexToAddress(txEventLog.TokenAddr)]; !ok {
 				return fmt.Errorf("unsupported eth token contract address: %s", txEventLog.TokenAddr)
@@ -423,10 +423,10 @@ func (engine *SwapEngine) swapInstanceDaemon(direction common.SwapDirection) {
 				util.SendTelegramMessage(fmt.Sprintf("write db error: %s", writeDBErr.Error()))
 			}
 
-			if swap.Direction == SwapEth2BSC {
-				time.Sleep(time.Duration(engine.config.ChainConfig.BSCWaitMilliSecBetweenSwaps) * time.Millisecond)
+			if swap.Direction == SwapEth2Side {
+				time.Sleep(time.Duration(engine.config.ChainConfig.SideWaitMilliSecBetweenSwaps) * time.Millisecond)
 			} else {
-				time.Sleep(time.Duration(engine.config.ChainConfig.ETHWaitMilliSecBetweenSwaps) * time.Millisecond)
+				time.Sleep(time.Duration(engine.config.ChainConfig.MainWaitMilliSecBetweenSwaps) * time.Millisecond)
 			}
 		}
 	}
@@ -439,10 +439,10 @@ func (engine *SwapEngine) doSwap(swap *model.Swap, swapPairInstance *SwapPairIns
 		return nil, fmt.Errorf("invalid swap amount: %s", swap.Amount)
 	}
 
-	if swap.Direction == SwapEth2BSC {
+	if swap.Direction == SwapEth2Side {
 		bscClientMutex.Lock()
 		defer bscClientMutex.Unlock()
-		data, err := abiEncodeFillETH2BSCSwap(ethcom.HexToHash(swap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(swap.Sponsor), amount, engine.bscSwapAgentABI)
+		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(swap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(swap.Sponsor), amount, engine.SideSwapAgentABI)
 		if err != nil {
 			return nil, err
 		}
@@ -451,7 +451,7 @@ func (engine *SwapEngine) doSwap(swap *model.Swap, swapPairInstance *SwapPairIns
 			return nil, err
 		}
 		swapTx := &model.SwapFillTx{
-			Direction:       SwapEth2BSC,
+			Direction:       SwapEth2Side,
 			StartSwapTxHash: swap.StartTxHash,
 			FillSwapTxHash:  signedTx.Hash().String(),
 			GasPrice:        signedTx.GasPrice().String(),
@@ -463,21 +463,21 @@ func (engine *SwapEngine) doSwap(swap *model.Swap, swapPairInstance *SwapPairIns
 		}
 		err = engine.bscClient.SendTransaction(context.Background(), signedTx)
 		if err != nil {
-			util.Logger.Errorf("broadcast tx to BSC error: %s", err.Error())
+			util.Logger.Errorf("broadcast tx to Side error: %s", err.Error())
 			return nil, err
 		}
-		util.Logger.Infof("Send transaction to BSC, %s/%s", engine.config.ChainConfig.BSCExplorerUrl, signedTx.Hash().String())
+		util.Logger.Infof("Send transaction to Side, %s/%s", engine.config.ChainConfig.SideExplorerUrl, signedTx.Hash().String())
 		return swapTx, nil
 	} else {
 		ethClientMutex.Lock()
 		defer ethClientMutex.Unlock()
-		data, err := abiEncodeFillBSC2ETHSwap(ethcom.HexToHash(swap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(swap.Sponsor), amount, engine.ethSwapAgentABI)
+		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(swap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(swap.Sponsor), amount, engine.MainSwapAgentABI)
 		signedTx, err := buildSignedTransaction(engine.ethSwapAgent, engine.ethClient, data, engine.ethPrivateKey)
 		if err != nil {
 			return nil, err
 		}
 		swapTx := &model.SwapFillTx{
-			Direction:       SwapBSC2Eth,
+			Direction:       SwapSide2Eth,
 			StartSwapTxHash: swap.StartTxHash,
 			GasPrice:        signedTx.GasPrice().String(),
 			FillSwapTxHash:  signedTx.Hash().String(),
@@ -489,10 +489,10 @@ func (engine *SwapEngine) doSwap(swap *model.Swap, swapPairInstance *SwapPairIns
 		}
 		err = engine.ethClient.SendTransaction(context.Background(), signedTx)
 		if err != nil {
-			util.Logger.Errorf("broadcast tx to ETH error: %s", err.Error())
+			util.Logger.Errorf("broadcast tx to Main error: %s", err.Error())
 			return nil, err
 		} else {
-			util.Logger.Infof("Send transaction to ETH, %s/%s", engine.config.ChainConfig.ETHExplorerUrl, signedTx.Hash().String())
+			util.Logger.Infof("Send transaction to Main, %s/%s", engine.config.ChainConfig.MainExplorerUrl, signedTx.Hash().String())
 		}
 		return swapTx, nil
 	}
@@ -504,7 +504,7 @@ func (engine *SwapEngine) trackSwapTxDaemon() {
 			time.Sleep(SleepTime * time.Second)
 
 			swapTxs := make([]model.SwapFillTx, 0)
-			engine.db.Where("status = ? and track_retry_counter >= ?", model.FillTxSent, engine.config.ChainConfig.ETHMaxTrackRetry).
+			engine.db.Where("status = ? and track_retry_counter >= ?", model.FillTxSent, engine.config.ChainConfig.MainMaxTrackRetry).
 				Order("id asc").Limit(TrackSentTxBatchSize).Find(&swapTxs)
 
 			if len(swapTxs) > 0 {
@@ -512,11 +512,11 @@ func (engine *SwapEngine) trackSwapTxDaemon() {
 			}
 
 			for _, swapTx := range swapTxs {
-				chainName := "ETH"
-				maxRetry := engine.config.ChainConfig.ETHMaxTrackRetry
-				if swapTx.Direction == SwapEth2BSC {
-					chainName = "BSC"
-					maxRetry = engine.config.ChainConfig.BSCMaxTrackRetry
+				chainName := "Main"
+				maxRetry := engine.config.ChainConfig.MainMaxTrackRetry
+				if swapTx.Direction == SwapEth2Side {
+					chainName = "Side"
+					maxRetry = engine.config.ChainConfig.SideMaxTrackRetry
 				}
 				util.Logger.Errorf("The fill tx is sent, however, after %d seconds its status is still uncertain. Mark tx as missing and mark swap as failed, chain %s, fill hash %s", SleepTime*maxRetry, chainName, swapTx.StartSwapTxHash)
 				util.SendTelegramMessage(fmt.Sprintf("The fill tx is sent, however, after %d seconds its status is still uncertain. Mark tx as missing and mark swap as failed, chain %s, start hash %s", SleepTime*maxRetry, chainName, swapTx.StartSwapTxHash))
@@ -556,11 +556,11 @@ func (engine *SwapEngine) trackSwapTxDaemon() {
 			time.Sleep(SleepTime * time.Second)
 
 			ethSwapTxs := make([]model.SwapFillTx, 0)
-			engine.db.Where("status = ? and direction = ? and track_retry_counter < ?", model.FillTxSent, SwapBSC2Eth, engine.config.ChainConfig.ETHMaxTrackRetry).
+			engine.db.Where("status = ? and direction = ? and track_retry_counter < ?", model.FillTxSent, SwapSide2Eth, engine.config.ChainConfig.MainMaxTrackRetry).
 				Order("id asc").Limit(TrackSentTxBatchSize).Find(&ethSwapTxs)
 
 			bscSwapTxs := make([]model.SwapFillTx, 0)
-			engine.db.Where("status = ? and direction = ? and track_retry_counter < ?", model.FillTxSent, SwapEth2BSC, engine.config.ChainConfig.BSCMaxTrackRetry).
+			engine.db.Where("status = ? and direction = ? and track_retry_counter < ?", model.FillTxSent, SwapEth2Side, engine.config.ChainConfig.SideMaxTrackRetry).
 				Order("id asc").Limit(TrackSentTxBatchSize).Find(&bscSwapTxs)
 
 			swapTxs := append(ethSwapTxs, bscSwapTxs...)
@@ -575,12 +575,12 @@ func (engine *SwapEngine) trackSwapTxDaemon() {
 
 				var client *ethclient.Client
 				var chainName string
-				if swapTx.Direction == SwapBSC2Eth {
+				if swapTx.Direction == SwapSide2Eth {
 					client = engine.ethClient
-					chainName = "ETH"
+					chainName = "Main"
 				} else {
 					client = engine.bscClient
-					chainName = "BSC"
+					chainName = "Side"
 				}
 				var txRecipient *types.Receipt
 				queryTxStatusErr := func() error {
@@ -594,7 +594,7 @@ func (engine *SwapEngine) trackSwapTxDaemon() {
 						util.Logger.Debugf("%s, query tx failed: %s", chainName, err.Error())
 						return err
 					}
-					if block.Number().Int64() < txRecipient.BlockNumber.Int64()+engine.config.ChainConfig.ETHConfirmNum {
+					if block.Number().Int64() < txRecipient.BlockNumber.Int64()+engine.config.ChainConfig.MainConfirmNum {
 						return fmt.Errorf("%s, swap tx is still not finalized", chainName)
 					}
 					return nil

@@ -18,10 +18,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	sabi "github.com/binance-chain/bsc-eth-swap/abi"
-	"github.com/binance-chain/bsc-eth-swap/common"
-	"github.com/binance-chain/bsc-eth-swap/model"
-	"github.com/binance-chain/bsc-eth-swap/util"
+	sabi "github.com/bcskill/eth-main-side-swap/abi"
+	"github.com/bcskill/eth-main-side-swap/common"
+	"github.com/bcskill/eth-main-side-swap/model"
+	"github.com/bcskill/eth-main-side-swap/util"
 )
 
 func NewSwapPairEngine(db *gorm.DB, cfg *util.Config, bscClient *ethclient.Client, swapEngine *SwapEngine) (*SwapPairEngine, error) {
@@ -29,7 +29,7 @@ func NewSwapPairEngine(db *gorm.DB, cfg *util.Config, bscClient *ethclient.Clien
 	if err != nil {
 		return nil, err
 	}
-	bscPrivateKey, _, err := BuildKeys(keyConfig.BSCPrivateKey)
+	bscPrivateKey, _, err := BuildKeys(keyConfig.SidePrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func NewSwapPairEngine(db *gorm.DB, cfg *util.Config, bscClient *ethclient.Clien
 	if err != nil {
 		return nil, err
 	}
-	bscSwapAgentAbi, err := abi.JSON(strings.NewReader(sabi.BSCSwapAgentABI))
+	sideSwapAgentAbi, err := abi.JSON(strings.NewReader(sabi.SideSwapAgentABI))
 	if err != nil {
 		return nil, err
 	}
@@ -48,8 +48,8 @@ func NewSwapPairEngine(db *gorm.DB, cfg *util.Config, bscClient *ethclient.Clien
 		bscPrivateKey:   bscPrivateKey,
 		bscClient:       bscClient,
 		bscChainID:      bscChainID.Int64(),
-		bscSwapAgentABi: &bscSwapAgentAbi,
-		bscSwapAgent:    ethcom.HexToAddress(cfg.ChainConfig.BSCSwapAgentAddr),
+		sideSwapAgentAbi: &sideSwapAgentAbi,
+		bscSwapAgent:    ethcom.HexToAddress(cfg.ChainConfig.SideSwapAgentAddr),
 		swapEngine:      swapEngine,
 	}
 	return swapPairEngine, nil
@@ -329,7 +329,7 @@ func (engine *SwapPairEngine) swapPairInstanceDaemon() {
 				util.Logger.Errorf("write db error: %s", writeDBErr.Error())
 				util.SendTelegramMessage(fmt.Sprintf("write db error: %s", writeDBErr.Error()))
 			}
-			time.Sleep(time.Duration(engine.config.ChainConfig.BSCWaitMilliSecBetweenSwaps) * time.Millisecond)
+			time.Sleep(time.Duration(engine.config.ChainConfig.SideWaitMilliSecBetweenSwaps) * time.Millisecond)
 		}
 	}
 }
@@ -338,7 +338,7 @@ func (engine *SwapPairEngine) doCreateSwapPair(swapPairSM *model.SwapPairStateMa
 
 	bscClientMutex.Lock()
 	defer bscClientMutex.Unlock()
-	data, err := abiEncodeCreateSwapPair(ethcom.HexToHash(swapPairSM.PairRegisterTxHash), ethcom.HexToAddress(swapPairSM.ERC20Addr), swapPairSM.Name, swapPairSM.Symbol, uint8(swapPairSM.Decimals), engine.bscSwapAgentABi)
+	data, err := abiEncodeCreateSwapPair(ethcom.HexToHash(swapPairSM.PairRegisterTxHash), ethcom.HexToAddress(swapPairSM.ERC20Addr), swapPairSM.Name, swapPairSM.Symbol, uint8(swapPairSM.Decimals), engine.SideSwapAgentABI)
 	if err != nil {
 		return nil, err
 	}
@@ -362,10 +362,10 @@ func (engine *SwapPairEngine) doCreateSwapPair(swapPairSM *model.SwapPairStateMa
 	}
 	err = engine.bscClient.SendTransaction(context.Background(), signedTx)
 	if err != nil {
-		util.Logger.Errorf("broadcast tx to BSC error: %s", err.Error())
+		util.Logger.Errorf("broadcast tx to Side error: %s", err.Error())
 		return nil, err
 	}
-	util.Logger.Infof("Send transaction to BSC, %s/%s", engine.config.ChainConfig.BSCExplorerUrl, signedTx.Hash().String())
+	util.Logger.Infof("Send transaction to Side, %s/%s", engine.config.ChainConfig.SideExplorerUrl, signedTx.Hash().String())
 	return swapTx, nil
 }
 
@@ -389,7 +389,7 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 			time.Sleep(SleepTime * time.Second)
 
 			swapPairCreateTxs := make([]model.SwapPairCreatTx, 0)
-			engine.db.Where("status = ? and track_retry_counter >= ?", model.FillTxSent, engine.config.ChainConfig.BSCMaxTrackRetry).
+			engine.db.Where("status = ? and track_retry_counter >= ?", model.FillTxSent, engine.config.ChainConfig.SideMaxTrackRetry).
 				Order("id asc").Limit(TrackSentTxBatchSize).Find(&swapPairCreateTxs)
 
 			if len(swapPairCreateTxs) > 0 {
@@ -398,7 +398,7 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 
 			for _, swapPairTx := range swapPairCreateTxs {
 
-				maxRetry := engine.config.ChainConfig.BSCMaxTrackRetry
+				maxRetry := engine.config.ChainConfig.SideMaxTrackRetry
 
 				util.Logger.Errorf("The create swap pair tx is sent, however, after %d seconds its status is still uncertain. Mark tx as missing and mark swap as failed, crete swap hash %s", SleepTime*maxRetry, swapPairTx.SwapPairCreatTxHash)
 				util.SendTelegramMessage(fmt.Sprintf("The create swap tx is sent, however, after %d seconds its status is still uncertain. Mark tx as missing and mark swap as failed, create swap %s", SleepTime*maxRetry, swapPairTx.SwapPairCreatTxHash))
@@ -438,7 +438,7 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 			time.Sleep(SleepTime * time.Second)
 
 			swapPairTxs := make([]model.SwapPairCreatTx, 0)
-			engine.db.Where("status = ? and track_retry_counter < ?", model.FillTxSent, engine.config.ChainConfig.ETHMaxTrackRetry).
+			engine.db.Where("status = ? and track_retry_counter < ?", model.FillTxSent, engine.config.ChainConfig.MainMaxTrackRetry).
 				Order("id asc").Limit(TrackSentTxBatchSize).Find(&swapPairTxs)
 
 			if len(swapPairTxs) > 0 {
@@ -463,7 +463,7 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 						util.Logger.Debugf("query tx failed: %s", err.Error())
 						return err
 					}
-					if block.Number().Int64() < txRecipient.BlockNumber.Int64()+engine.config.ChainConfig.ETHConfirmNum {
+					if block.Number().Int64() < txRecipient.BlockNumber.Int64()+engine.config.ChainConfig.MainConfirmNum {
 						return fmt.Errorf("swap tx is still not finalized")
 					}
 					return nil
@@ -504,7 +504,7 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 						} else {
 							bep20ContractAddr, err := queryDeployedBEP20ContractAddr(
 								ethcom.HexToAddress(swapPairTx.ERC20Addr),
-								ethcom.HexToAddress(engine.config.ChainConfig.BSCSwapAgentAddr),
+								ethcom.HexToAddress(engine.config.ChainConfig.SideSwapAgentAddr),
 								txRecipient,
 								engine.bscClient)
 							if err != nil {

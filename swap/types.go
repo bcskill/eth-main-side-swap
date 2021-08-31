@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jinzhu/gorm"
 
-	"github.com/binance-chain/bsc-eth-swap/common"
-	"github.com/binance-chain/bsc-eth-swap/util"
+	"github.com/bcskill/eth-main-side-swap/common"
+	"github.com/bcskill/eth-main-side-swap/util"
 )
 
 const (
@@ -38,8 +38,8 @@ const (
 	RetrySwapSendFailed common.RetrySwapStatus = "sent_fail"
 	RetrySwapSuccess    common.RetrySwapStatus = "sent_success"
 
-	SwapEth2BSC common.SwapDirection = "eth_bsc"
-	SwapBSC2Eth common.SwapDirection = "bsc_eth"
+	SwapEth2Side common.SwapDirection = "eth_bsc"
+	SwapSide2Eth common.SwapDirection = "bsc_eth"
 
 	BatchSize                = 50
 	TrackSentTxBatchSize     = 100
@@ -71,8 +71,8 @@ type SwapEngine struct {
 	bep20ToERC20           map[ethcom.Address]ethcom.Address
 	erc20ToBEP20           map[ethcom.Address]ethcom.Address
 
-	ethSwapAgentABI *abi.ABI
-	bscSwapAgentABI *abi.ABI
+	mainSwapAgentABI *abi.ABI
+	sideSwapAgentABI *abi.ABI
 
 	ethSwapAgent ethcom.Address
 	bscSwapAgent ethcom.Address
@@ -91,7 +91,7 @@ type SwapPairEngine struct {
 	bscChainID      int64
 	bscTxSender     ethcom.Address
 	bscSwapAgent    ethcom.Address
-	bscSwapAgentABi *abi.ABI
+	sideSwapAgentABI *abi.ABI
 }
 
 type SwapPairIns struct {

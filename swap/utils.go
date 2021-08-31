@@ -16,10 +16,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	contractabi "github.com/binance-chain/bsc-eth-swap/abi"
-	"github.com/binance-chain/bsc-eth-swap/common"
-	"github.com/binance-chain/bsc-eth-swap/model"
-	"github.com/binance-chain/bsc-eth-swap/util"
+	contractabi "github.com/bcskill/eth-main-side-swap/abi"
+	"github.com/bcskill/eth-main-side-swap/common"
+	"github.com/bcskill/eth-main-side-swap/model"
+	"github.com/bcskill/eth-main-side-swap/util"
 
 )
 
@@ -73,14 +73,14 @@ func GetKeyConfig(cfg *util.Config) (*util.KeyConfig, error) {
 			HMACKey:        cfg.KeyManagerConfig.LocalHMACKey,
 			AdminApiKey:    cfg.KeyManagerConfig.LocalAdminApiKey,
 			AdminSecretKey: cfg.KeyManagerConfig.LocalAdminSecretKey,
-			BSCPrivateKey:  cfg.KeyManagerConfig.LocalBSCPrivateKey,
-			ETHPrivateKey:  cfg.KeyManagerConfig.LocalETHPrivateKey,
+			SidePrivateKey:  cfg.KeyManagerConfig.LocalSidePrivateKey,
+			MainPrivateKey:  cfg.KeyManagerConfig.LocalMainPrivateKey,
 		}, nil
 	}
 }
 
-func abiEncodeFillETH2BSCSwap(ethTxHash ethcom.Hash, erc20Addr ethcom.Address, toAddress ethcom.Address, amount *big.Int, abi *abi.ABI) ([]byte, error) {
-	data, err := abi.Pack("fillETH2BSCSwap", ethTxHash, erc20Addr, toAddress, amount)
+func abiEncodeFillMain2SideSwap(ethTxHash ethcom.Hash, erc20Addr ethcom.Address, toAddress ethcom.Address, amount *big.Int, abi *abi.ABI) ([]byte, error) {
+	data, err := abi.Pack("fillMain2SideSwap", ethTxHash, erc20Addr, toAddress, amount)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +95,8 @@ func abiEncodeERC20Transfer(recipient ethcom.Address, amount *big.Int, abi *abi.
 	return data, nil
 }
 
-func abiEncodeFillBSC2ETHSwap(ethTxHash ethcom.Hash, erc20Addr ethcom.Address, toAddress ethcom.Address, amount *big.Int, abi *abi.ABI) ([]byte, error) {
-	data, err := abi.Pack("fillBSC2ETHSwap", ethTxHash, erc20Addr, toAddress, amount)
+func abiEncodeFillSide2MainSwap(ethTxHash ethcom.Hash, erc20Addr ethcom.Address, toAddress ethcom.Address, amount *big.Int, abi *abi.ABI) ([]byte, error) {
+	data, err := abi.Pack("fillSide2MainSwap", ethTxHash, erc20Addr, toAddress, amount)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func buildNativeCoinTransferTx(contract ethcom.Address, ethClient *ethclient.Cli
 }
 
 func queryDeployedBEP20ContractAddr(erc20Addr ethcom.Address, bscSwapAgentAddr ethcom.Address, txRecipient *types.Receipt, bscClient *ethclient.Client) (ethcom.Address, error) {
-	swapAgentInstance, err := contractabi.NewBSCSwapAgent(bscSwapAgentAddr, bscClient)
+	swapAgentInstance, err := contractabi.NewSideSwapAgent(bscSwapAgentAddr, bscClient)
 	if err != nil {
 		return ethcom.Address{}, err
 	}

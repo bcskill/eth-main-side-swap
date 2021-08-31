@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/binance-chain/bsc-eth-swap/admin"
+	"github.com/bcskill/eth-main-side-swap/admin"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jinzhu/gorm"
@@ -13,11 +13,11 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/binance-chain/bsc-eth-swap/executor"
-	"github.com/binance-chain/bsc-eth-swap/model"
-	"github.com/binance-chain/bsc-eth-swap/observer"
-	"github.com/binance-chain/bsc-eth-swap/swap"
-	"github.com/binance-chain/bsc-eth-swap/util"
+	"github.com/bcskill/eth-main-side-swap/executor"
+	"github.com/bcskill/eth-main-side-swap/model"
+	"github.com/bcskill/eth-main-side-swap/observer"
+	"github.com/bcskill/eth-main-side-swap/swap"
+	"github.com/bcskill/eth-main-side-swap/util"
 )
 
 const (
@@ -105,22 +105,22 @@ func main() {
 	defer db.Close()
 	model.InitTables(db)
 
-	bscClient, err := ethclient.Dial(config.ChainConfig.BSCProvider)
+	bscClient, err := ethclient.Dial(config.ChainConfig.SideProvider)
 	if err != nil {
 		panic("new eth client error")
 	}
 
-	ethClient, err := ethclient.Dial(config.ChainConfig.ETHProvider)
+	ethClient, err := ethclient.Dial(config.ChainConfig.MainProvider)
 	if err != nil {
 		panic("new eth client error")
 	}
 
-	bscExecutor := executor.NewBSCExecutor(bscClient, config.ChainConfig.BSCSwapAgentAddr, config)
-	bscObserver := observer.NewObserver(db, config.ChainConfig.BSCStartHeight, config.ChainConfig.BSCConfirmNum, config, bscExecutor)
+	bscExecutor := executor.NewSideExecutor(bscClient, config.ChainConfig.SideSwapAgentAddr, config)
+	bscObserver := observer.NewObserver(db, config.ChainConfig.SideStartHeight, config.ChainConfig.SideConfirmNum, config, bscExecutor)
 	bscObserver.Start()
 
-	ethExecutor := executor.NewEthExecutor(ethClient, config.ChainConfig.ETHSwapAgentAddr, config)
-	ethObserver := observer.NewObserver(db, config.ChainConfig.ETHStartHeight, config.ChainConfig.ETHConfirmNum, config, ethExecutor)
+	ethExecutor := executor.NewEthExecutor(ethClient, config.ChainConfig.MainSwapAgentAddr, config)
+	ethObserver := observer.NewObserver(db, config.ChainConfig.MainStartHeight, config.ChainConfig.MainConfirmNum, config, ethExecutor)
 	ethObserver.Start()
 
 	swapEngine, err := swap.NewSwapEngine(db, config, bscClient, ethClient)

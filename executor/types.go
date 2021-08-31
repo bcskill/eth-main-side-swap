@@ -1,13 +1,13 @@
 package executor
 
 import (
-	common "github.com/binance-chain/bsc-eth-swap/common"
+	common "github.com/bcskill/eth-main-side-swap/common"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcmm "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"math/big"
 
-	"github.com/binance-chain/bsc-eth-swap/model"
+	"github.com/bcskill/eth-main-side-swap/model"
 )
 
 type Executor interface {
@@ -17,19 +17,19 @@ type Executor interface {
 
 // ===================  SwapStarted =============
 var (
-	SwapStartedEventName        = "SwapStarted"
-	ETH2BSCSwapStartedEventHash = ethcmm.HexToHash("0xf60309f865a6aa297da5fac6188136a02e5acfdf6e8f6d35257a9f4e9653170f")
-	BSC2ETHSwapStartedEventHash = ethcmm.HexToHash("0x49c08ff11118922c1e8298915531eff9ef6f8b39b44b3e9952b75d47e1d0cdd0")
+	SwapStartedEventName          = "SwapStarted"
+	Main2SideSwapStartedEventHash = ethcmm.HexToHash("0xf60309f865a6aa297da5fac6188136a02e5acfdf6e8f6d35257a9f4e9653170f")
+	Side2MainSwapStartedEventHash = ethcmm.HexToHash("0x49c08ff11118922c1e8298915531eff9ef6f8b39b44b3e9952b75d47e1d0cdd0")
 )
 
-type ETH2BSCSwapStartedEvent struct {
+type Main2SideSwapStartedEvent struct {
 	ERC20Addr ethcmm.Address
 	FromAddr  ethcmm.Address
 	Amount    *big.Int
 	FeeAmount *big.Int
 }
 
-func (ev *ETH2BSCSwapStartedEvent) ToSwapStartTxLog(log *types.Log) *model.SwapStartTxLog {
+func (ev *Main2SideSwapStartedEvent) ToSwapStartTxLog(log *types.Log) *model.SwapStartTxLog {
 	pack := &model.SwapStartTxLog{
 		TokenAddr:   ev.ERC20Addr.String(),
 		FromAddress: ev.FromAddr.String(),
@@ -43,8 +43,8 @@ func (ev *ETH2BSCSwapStartedEvent) ToSwapStartTxLog(log *types.Log) *model.SwapS
 	return pack
 }
 
-func ParseETH2BSCSwapStartEvent(abi *abi.ABI, log *types.Log) (*ETH2BSCSwapStartedEvent, error) {
-	var ev ETH2BSCSwapStartedEvent
+func ParseMain2SideSwapStartEvent(abi *abi.ABI, log *types.Log) (*Main2SideSwapStartedEvent, error) {
+	var ev Main2SideSwapStartedEvent
 
 	err := abi.UnpackIntoInterface(&ev, SwapStartedEventName, log.Data)
 	if err != nil {
@@ -57,7 +57,7 @@ func ParseETH2BSCSwapStartEvent(abi *abi.ABI, log *types.Log) (*ETH2BSCSwapStart
 	return &ev, nil
 }
 
-type BSC2ETHSwapStartedEvent struct {
+type Side2MainSwapStartedEvent struct {
 	BEP20Addr ethcmm.Address
 	ERC20Addr ethcmm.Address
 	FromAddr  ethcmm.Address
@@ -65,7 +65,7 @@ type BSC2ETHSwapStartedEvent struct {
 	FeeAmount *big.Int
 }
 
-func (ev *BSC2ETHSwapStartedEvent) ToSwapStartTxLog(log *types.Log) *model.SwapStartTxLog {
+func (ev *Side2MainSwapStartedEvent) ToSwapStartTxLog(log *types.Log) *model.SwapStartTxLog {
 	pack := &model.SwapStartTxLog{
 		TokenAddr:   ev.BEP20Addr.String(),
 		FromAddress: ev.FromAddr.String(),
@@ -79,8 +79,8 @@ func (ev *BSC2ETHSwapStartedEvent) ToSwapStartTxLog(log *types.Log) *model.SwapS
 	return pack
 }
 
-func ParseBSC2ETHSwapStartEvent(abi *abi.ABI, log *types.Log) (*BSC2ETHSwapStartedEvent, error) {
-	var ev BSC2ETHSwapStartedEvent
+func ParseSide2MainSwapStartEvent(abi *abi.ABI, log *types.Log) (*Side2MainSwapStartedEvent, error) {
+	var ev Side2MainSwapStartedEvent
 
 	err := abi.UnpackIntoInterface(&ev, SwapStartedEventName, log.Data)
 	if err != nil {

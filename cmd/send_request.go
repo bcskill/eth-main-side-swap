@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/binance-chain/bsc-eth-swap/util"
+	"github.com/bcskill/eth-main-side-swap/util"
 )
 
 type Request struct {

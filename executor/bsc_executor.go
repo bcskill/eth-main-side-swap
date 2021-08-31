@@ -12,48 +12,48 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	agent "github.com/binance-chain/bsc-eth-swap/abi"
-	contractabi "github.com/binance-chain/bsc-eth-swap/abi"
-	"github.com/binance-chain/bsc-eth-swap/common"
-	"github.com/binance-chain/bsc-eth-swap/util"
+	agent "github.com/bcskill/eth-main-side-swap/abi"
+	contractabi "github.com/bcskill/eth-main-side-swap/abi"
+	"github.com/bcskill/eth-main-side-swap/common"
+	"github.com/bcskill/eth-main-side-swap/util"
 )
 
-type BscExecutor struct {
+type SideExecutor struct {
 	Chain  string
 	Config *util.Config
 
 	SwapAgentAddr    ethcmm.Address
-	BSCSwapAgentInst *contractabi.ETHSwapAgent
+	SideSwapAgentInst *contractabi.MainSwapAgent
 	SwapAgentAbi     abi.ABI
 	Client           *ethclient.Client
 }
 
-func NewBSCExecutor(ethClient *ethclient.Client, swapAddr string, config *util.Config) *BscExecutor {
-	agentAbi, err := abi.JSON(strings.NewReader(agent.BSCSwapAgentABI))
+func NewSideExecutor(ethClient *ethclient.Client, swapAddr string, config *util.Config) *SideExecutor {
+	agentAbi, err := abi.JSON(strings.NewReader(agent.SideSwapAgentABI))
 	if err != nil {
 		panic("marshal abi error")
 	}
 
-	bscSwapAgentInst, err := contractabi.NewETHSwapAgent(ethcmm.HexToAddress(swapAddr), ethClient)
+	bscSwapAgentInst, err := contractabi.NewMainSwapAgent(ethcmm.HexToAddress(swapAddr), ethClient)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	return &BscExecutor{
-		Chain:            common.ChainBSC,
+	return &SideExecutor{
+		Chain:            common.ChainSide,
 		Config:           config,
 		SwapAgentAddr:    ethcmm.HexToAddress(swapAddr),
-		BSCSwapAgentInst: bscSwapAgentInst,
+		SideSwapAgentInst: bscSwapAgentInst,
 		SwapAgentAbi:     agentAbi,
 		Client:           ethClient,
 	}
 }
 
-func (e *BscExecutor) GetChainName() string {
+func (e *SideExecutor) GetChainName() string {
 	return e.Chain
 }
 
-func (e *BscExecutor) GetBlockAndTxEvents(height int64) (*common.BlockAndEventLogs, error) {
+func (e *SideExecutor) GetBlockAndTxEvents(height int64) (*common.BlockAndEventLogs, error) {
 	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -76,12 +76,12 @@ func (e *BscExecutor) GetBlockAndTxEvents(height int64) (*common.BlockAndEventLo
 		Events:          packageLogs,
 	}, nil
 }
-func (e *BscExecutor) GetLogs(header *types.Header) ([]interface{}, error) {
+func (e *SideExecutor) GetLogs(header *types.Header) ([]interface{}, error) {
 	return e.GetSwapStartLogs(header)
 }
 
-func (e *BscExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, error) {
-	topics := [][]ethcmm.Hash{{BSC2ETHSwapStartedEventHash}}
+func (e *SideExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, error) {
+	topics := [][]ethcmm.Hash{{Side2MainSwapStartedEventHash}}
 
 	blockHash := header.Hash()
 
@@ -99,7 +99,7 @@ func (e *BscExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, err
 
 	eventModels := make([]interface{}, 0, len(logs))
 	for _, log := range logs {
-		event, err := ParseBSC2ETHSwapStartEvent(&e.SwapAgentAbi, &log)
+		event, err := ParseSide2MainSwapStartEvent(&e.SwapAgentAbi, &log)
 		if err != nil {
 			util.Logger.Errorf("parse event log error, er=%s", err.Error())
 			continue
@@ -110,7 +110,7 @@ func (e *BscExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, err
 
 		eventModel := event.ToSwapStartTxLog(&log)
 		eventModel.Chain = e.Chain
-		util.Logger.Debugf("Found BSC2ETH swap, txHash: %s, token address: %s, amount: %s, fee amount: %s",
+		util.Logger.Debugf("Found Side2Main swap, txHash: %s, token address: %s, amount: %s, fee amount: %s",
 			eventModel.TxHash, eventModel.TokenAddr, eventModel.Amount, eventModel.FeeAmount)
 		eventModels = append(eventModels, eventModel)
 	}

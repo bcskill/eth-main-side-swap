@@ -1,4 +1,4 @@
-module github.com/binance-chain/bsc-eth-swap
+module github.com/bcskill/eth-main-side-swap
 
 go 1.14
 

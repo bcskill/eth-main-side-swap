@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/binance-chain/bsc-eth-swap/common"
+	"github.com/bcskill/eth-main-side-swap/common"
 )
 
 // Signer signs provided payloads.
