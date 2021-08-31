@@ -79,8 +79,8 @@ func GetKeyConfig(cfg *util.Config) (*util.KeyConfig, error) {
 	}
 }
 
-func abiEncodeFillMain2SideSwap(ethTxHash ethcom.Hash, erc20Addr ethcom.Address, toAddress ethcom.Address, amount *big.Int, abi *abi.ABI) ([]byte, error) {
-	data, err := abi.Pack("fillMain2SideSwap", ethTxHash, erc20Addr, toAddress, amount)
+func abiEncodeFillMain2SideSwap(mainTxHash ethcom.Hash, erc20Addr ethcom.Address, toAddress ethcom.Address, amount *big.Int, abi *abi.ABI) ([]byte, error) {
+	data, err := abi.Pack("fillMain2SideSwap", mainTxHash, erc20Addr, toAddress, amount)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +95,8 @@ func abiEncodeERC20Transfer(recipient ethcom.Address, amount *big.Int, abi *abi.
 	return data, nil
 }
 
-func abiEncodeFillSide2MainSwap(ethTxHash ethcom.Hash, erc20Addr ethcom.Address, toAddress ethcom.Address, amount *big.Int, abi *abi.ABI) ([]byte, error) {
-	data, err := abi.Pack("fillSide2MainSwap", ethTxHash, erc20Addr, toAddress, amount)
+func abiEncodeFillSide2MainSwap(mainTxHash ethcom.Hash, erc20Addr ethcom.Address, toAddress ethcom.Address, amount *big.Int, abi *abi.ABI) ([]byte, error) {
+	data, err := abi.Pack("fillSide2MainSwap", mainTxHash, erc20Addr, toAddress, amount)
 	if err != nil {
 		return nil, err
 	}
@@ -111,20 +111,20 @@ func abiEncodeCreateSwapPair(registerTxHash ethcom.Hash, erc20Addr ethcom.Addres
 	return data, nil
 }
 
-func buildSignedTransaction(contract ethcom.Address, ethClient *ethclient.Client, txInput []byte, privateKey *ecdsa.PrivateKey) (*types.Transaction, error) {
+func buildSignedTransaction(contract ethcom.Address, mainClient *ethclient.Client, txInput []byte, privateKey *ecdsa.PrivateKey) (*types.Transaction, error) {
 	txOpts := bind.NewKeyedTransactor(privateKey)
 
-	nonce, err := ethClient.PendingNonceAt(context.Background(), txOpts.From)
+	nonce, err := mainClient.PendingNonceAt(context.Background(), txOpts.From)
 	if err != nil {
 		return nil, err
 	}
-	gasPrice, err := ethClient.SuggestGasPrice(context.Background())
+	gasPrice, err := mainClient.SuggestGasPrice(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	value := big.NewInt(0)
 	msg := ethereum.CallMsg{From: txOpts.From, To: &contract, GasPrice: gasPrice, Value: value, Data: txInput}
-	gasLimit, err := ethClient.EstimateGas(context.Background(), msg)
+	gasLimit, err := mainClient.EstimateGas(context.Background(), msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas needed: %v", err)
 	}
@@ -138,19 +138,19 @@ func buildSignedTransaction(contract ethcom.Address, ethClient *ethclient.Client
 	return signedTx, nil
 }
 
-func buildNativeCoinTransferTx(contract ethcom.Address, ethClient *ethclient.Client, value *big.Int, privateKey *ecdsa.PrivateKey) (*types.Transaction, error) {
+func buildNativeCoinTransferTx(contract ethcom.Address, mainClient *ethclient.Client, value *big.Int, privateKey *ecdsa.PrivateKey) (*types.Transaction, error) {
 	txOpts := bind.NewKeyedTransactor(privateKey)
 
-	nonce, err := ethClient.PendingNonceAt(context.Background(), txOpts.From)
+	nonce, err := mainClient.PendingNonceAt(context.Background(), txOpts.From)
 	if err != nil {
 		return nil, err
 	}
-	gasPrice, err := ethClient.SuggestGasPrice(context.Background())
+	gasPrice, err := mainClient.SuggestGasPrice(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	msg := ethereum.CallMsg{From: txOpts.From, To: &contract, GasPrice: gasPrice, Value: value}
-	gasLimit, err := ethClient.EstimateGas(context.Background(), msg)
+	gasLimit, err := mainClient.EstimateGas(context.Background(), msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas needed: %v", err)
 	}
@@ -164,21 +164,21 @@ func buildNativeCoinTransferTx(contract ethcom.Address, ethClient *ethclient.Cli
 	return signedTx, nil
 }
 
-func queryDeployedBEP20ContractAddr(erc20Addr ethcom.Address, bscSwapAgentAddr ethcom.Address, txRecipient *types.Receipt, bscClient *ethclient.Client) (ethcom.Address, error) {
-	swapAgentInstance, err := contractabi.NewSideSwapAgent(bscSwapAgentAddr, bscClient)
+func queryDeployedBEP20ContractAddr(erc20Addr ethcom.Address, sideSwapAgentAddr ethcom.Address, txRecipient *types.Receipt, sideClient *ethclient.Client) (ethcom.Address, error) {
+	swapAgentInstance, err := contractabi.NewSideSwapAgent(sideSwapAgentAddr, sideClient)
 	if err != nil {
 		return ethcom.Address{}, err
 	}
 	if len(txRecipient.Logs) != 2 {
 		return ethcom.Address{}, fmt.Errorf("Expected tx logs length in recipient is 2, actual it is %d", len(txRecipient.Logs))
 	}
-	createSwapEvent, err := swapAgentInstance.ParseSwapPairCreated(*txRecipient.Logs[1])
+	createSwapEvent, err := swapAgentInstance.ParseSwapPairCreatedEvent(*txRecipient.Logs[1])
 	if err != nil || createSwapEvent == nil {
 		return ethcom.Address{}, err
 	}
 
-	util.Logger.Debugf("Deployed bep20 contact %s for register erc20 %s", createSwapEvent.Bep20Addr.String(), erc20Addr.String())
-	return createSwapEvent.Bep20Addr, nil
+	util.Logger.Debugf("Deployed bep20 contact %s for register erc20 %s", createSwapEvent.SideChainErc20Addr.String(), erc20Addr.String())
+	return createSwapEvent.SideChainErc20Addr, nil
 }
 
 func BuildKeys(privateKeyStr string) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {

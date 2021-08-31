@@ -82,14 +82,14 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 		return nil, fmt.Errorf("invalid swap amount: %s", retrySwap.Amount)
 	}
 
-	if retrySwap.Direction == SwapEth2Side {
-		bscClientMutex.Lock()
-		defer bscClientMutex.Unlock()
-		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(retrySwap.Sponsor), amount, engine.SideSwapAgentABI)
+	if retrySwap.Direction == SwapMain2Side {
+		sideClientMutex.Lock()
+		defer sideClientMutex.Unlock()
+		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(retrySwap.Sponsor), amount, engine.sideSwapAgentABI)
 		if err != nil {
 			return nil, err
 		}
-		signedTx, err := buildSignedTransaction(engine.bscSwapAgent, engine.bscClient, data, engine.bscPrivateKey)
+		signedTx, err := buildSignedTransaction(engine.sideSwapAgent, engine.sideClient, data, engine.sidePrivateKey)
 		if err != nil {
 			return nil, err
 		}
@@ -105,7 +105,7 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 		if err != nil {
 			return nil, err
 		}
-		err = engine.bscClient.SendTransaction(context.Background(), signedTx)
+		err = engine.sideClient.SendTransaction(context.Background(), signedTx)
 		if err != nil {
 			util.Logger.Errorf("broadcast tx to Side error: %s", err.Error())
 			return nil, err
@@ -113,10 +113,10 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 		util.Logger.Infof("Send transaction to Side, %s/%s", engine.config.ChainConfig.SideExplorerUrl, signedTx.Hash().String())
 		return retrySwapTx, nil
 	} else {
-		ethClientMutex.Lock()
-		defer ethClientMutex.Unlock()
-		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(retrySwap.Sponsor), amount, engine.MainSwapAgentABI)
-		signedTx, err := buildSignedTransaction(engine.ethSwapAgent, engine.ethClient, data, engine.ethPrivateKey)
+		mainClientMutex.Lock()
+		defer mainClientMutex.Unlock()
+		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(retrySwap.Sponsor), amount, engine.mainSwapAgentABI)
+		signedTx, err := buildSignedTransaction(engine.mainSwapAgent, engine.mainClient, data, engine.mainPrivateKey)
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +131,7 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 		if err != nil {
 			return nil, err
 		}
-		err = engine.ethClient.SendTransaction(context.Background(), signedTx)
+		err = engine.mainClient.SendTransaction(context.Background(), signedTx)
 		if err != nil {
 			util.Logger.Errorf("broadcast tx to Main error: %s", err.Error())
 			return nil, err
@@ -289,7 +289,7 @@ func (engine *SwapEngine) trackRetrySwapTxDaemon() {
 			for _, retrySwapTx := range retrySwapTxs {
 				chainName := "Main"
 				maxRetry := engine.config.ChainConfig.MainMaxTrackRetry
-				if retrySwapTx.Direction == SwapEth2Side {
+				if retrySwapTx.Direction == SwapMain2Side {
 					chainName = "Side"
 					maxRetry = engine.config.ChainConfig.SideMaxTrackRetry
 				}
@@ -344,11 +344,11 @@ func (engine *SwapEngine) trackRetrySwapTxDaemon() {
 
 				var client *ethclient.Client
 				var chainName string
-				if retrySwapTx.Direction == SwapSide2Eth {
-					client = engine.ethClient
+				if retrySwapTx.Direction == SwapSide2Main {
+					client = engine.mainClient
 					chainName = "Main"
 				} else {
-					client = engine.bscClient
+					client = engine.sideClient
 					chainName = "Side"
 				}
 				var txRecipient *types.Receipt
@@ -502,18 +502,18 @@ func (engine *SwapEngine) WithdrawToken(chain string, tokenAddr, recipient ethco
 		return "", err
 	}
 	emptyAddr := ethcom.Address{}
-	privateKey := engine.bscPrivateKey
-	client := engine.bscClient
+	privateKey := engine.sidePrivateKey
+	client := engine.sideClient
 	explorerUrl := engine.config.ChainConfig.SideExplorerUrl
 	if chain == common.ChainMain {
-		privateKey = engine.ethPrivateKey
-		client = engine.ethClient
+		privateKey = engine.mainPrivateKey
+		client = engine.mainClient
 		explorerUrl = engine.config.ChainConfig.MainExplorerUrl
-		ethClientMutex.Lock()
-		defer ethClientMutex.Unlock()
+		mainClientMutex.Lock()
+		defer mainClientMutex.Unlock()
 	} else {
-		bscClientMutex.Lock()
-		defer bscClientMutex.Unlock()
+		sideClientMutex.Lock()
+		defer sideClientMutex.Unlock()
 	}
 	// withdraw native token
 	if bytes.Equal(tokenAddr[:], emptyAddr[:]) {

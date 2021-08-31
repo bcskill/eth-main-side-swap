@@ -24,16 +24,16 @@ import (
 	"github.com/bcskill/eth-main-side-swap/util"
 )
 
-func NewSwapPairEngine(db *gorm.DB, cfg *util.Config, bscClient *ethclient.Client, swapEngine *SwapEngine) (*SwapPairEngine, error) {
+func NewSwapPairEngine(db *gorm.DB, cfg *util.Config, sideClient *ethclient.Client, swapEngine *SwapEngine) (*SwapPairEngine, error) {
 	keyConfig, err := GetKeyConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	bscPrivateKey, _, err := BuildKeys(keyConfig.SidePrivateKey)
+	sidePrivateKey, _, err := BuildKeys(keyConfig.SidePrivateKey)
 	if err != nil {
 		return nil, err
 	}
-	bscChainID, err := bscClient.ChainID(context.Background())
+	sideChainID, err := sideClient.ChainID(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -45,11 +45,11 @@ func NewSwapPairEngine(db *gorm.DB, cfg *util.Config, bscClient *ethclient.Clien
 		db:              db,
 		config:          cfg,
 		hmacKey:         keyConfig.HMACKey,
-		bscPrivateKey:   bscPrivateKey,
-		bscClient:       bscClient,
-		bscChainID:      bscChainID.Int64(),
-		sideSwapAgentAbi: &sideSwapAgentAbi,
-		bscSwapAgent:    ethcom.HexToAddress(cfg.ChainConfig.SideSwapAgentAddr),
+		sidePrivateKey:   sidePrivateKey,
+		sideClient:       sideClient,
+		sideChainID:      sideChainID.Int64(),
+		sideSwapAgentABI: &sideSwapAgentAbi,
+		sideSwapAgent:    ethcom.HexToAddress(cfg.ChainConfig.SideSwapAgentAddr),
 		swapEngine:      swapEngine,
 	}
 	return swapPairEngine, nil
@@ -105,12 +105,12 @@ func (engine *SwapPairEngine) createSwapPairSM(txEventLog *model.SwapPairRegiste
 
 	swapPairRegisterTxHash := txEventLog.TxHash
 
-	ethContractAddr := ethcom.HexToAddress(txEventLog.ERC20Addr)
+	mainContractAddr := ethcom.HexToAddress(txEventLog.ERC20Addr)
 	swapPairStatus := SwapPairReceived
 	// TODO, duplicate check
 	swapSM := &model.SwapPairStateMachine{
 		Status:    swapPairStatus,
-		ERC20Addr: ethContractAddr.String(),
+		ERC20Addr: mainContractAddr.String(),
 		BEP20Addr: "",
 		Sponsor:   txEventLog.Sponsor,
 		Symbol:    txEventLog.Symbol,
@@ -336,13 +336,13 @@ func (engine *SwapPairEngine) swapPairInstanceDaemon() {
 
 func (engine *SwapPairEngine) doCreateSwapPair(swapPairSM *model.SwapPairStateMachine) (*model.SwapPairCreatTx, error) {
 
-	bscClientMutex.Lock()
-	defer bscClientMutex.Unlock()
-	data, err := abiEncodeCreateSwapPair(ethcom.HexToHash(swapPairSM.PairRegisterTxHash), ethcom.HexToAddress(swapPairSM.ERC20Addr), swapPairSM.Name, swapPairSM.Symbol, uint8(swapPairSM.Decimals), engine.SideSwapAgentABI)
+	sideClientMutex.Lock()
+	defer sideClientMutex.Unlock()
+	data, err := abiEncodeCreateSwapPair(ethcom.HexToHash(swapPairSM.PairRegisterTxHash), ethcom.HexToAddress(swapPairSM.ERC20Addr), swapPairSM.Name, swapPairSM.Symbol, uint8(swapPairSM.Decimals), engine.sideSwapAgentABI)
 	if err != nil {
 		return nil, err
 	}
-	signedTx, err := buildSignedTransaction(engine.bscSwapAgent, engine.bscClient, data, engine.bscPrivateKey)
+	signedTx, err := buildSignedTransaction(engine.sideSwapAgent, engine.sideClient, data, engine.sidePrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +360,7 @@ func (engine *SwapPairEngine) doCreateSwapPair(swapPairSM *model.SwapPairStateMa
 	if err != nil {
 		return nil, err
 	}
-	err = engine.bscClient.SendTransaction(context.Background(), signedTx)
+	err = engine.sideClient.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		util.Logger.Errorf("broadcast tx to Side error: %s", err.Error())
 		return nil, err
@@ -449,7 +449,7 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 				gasPrice := big.NewInt(0)
 				gasPrice.SetString(swapPairTx.GasPrice, 10)
 
-				client := engine.bscClient
+				client := engine.sideClient
 
 				var txRecipient *types.Receipt
 				queryTxStatusErr := func() error {
@@ -506,7 +506,7 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 								ethcom.HexToAddress(swapPairTx.ERC20Addr),
 								ethcom.HexToAddress(engine.config.ChainConfig.SideSwapAgentAddr),
 								txRecipient,
-								engine.bscClient)
+								engine.sideClient)
 							if err != nil {
 								tx.Rollback()
 								return err

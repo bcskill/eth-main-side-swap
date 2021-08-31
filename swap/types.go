@@ -38,8 +38,8 @@ const (
 	RetrySwapSendFailed common.RetrySwapStatus = "sent_fail"
 	RetrySwapSuccess    common.RetrySwapStatus = "sent_success"
 
-	SwapEth2Side common.SwapDirection = "eth_bsc"
-	SwapSide2Eth common.SwapDirection = "bsc_eth"
+	SwapMain2Side common.SwapDirection = "main_side"
+	SwapSide2Main common.SwapDirection = "side_main"
 
 	BatchSize                = 50
 	TrackSentTxBatchSize     = 100
@@ -52,30 +52,30 @@ const (
 	MaxUpperBound = "999999999999999999999999999999999999"
 )
 
-var ethClientMutex sync.RWMutex
-var bscClientMutex sync.RWMutex
+var mainClientMutex sync.RWMutex
+var sideClientMutex sync.RWMutex
 
 type SwapEngine struct {
 	mutex    sync.RWMutex
 	db       *gorm.DB
 	hmacCKey string
 	config   *util.Config
-	// key is the bsc contract addr
+	// key is the side contract addr
 	swapPairsFromERC20Addr map[ethcom.Address]*SwapPairIns
-	ethClient              *ethclient.Client
-	bscClient              *ethclient.Client
-	ethPrivateKey          *ecdsa.PrivateKey
-	bscPrivateKey          *ecdsa.PrivateKey
-	ethChainID             int64
-	bscChainID             int64
-	bep20ToERC20           map[ethcom.Address]ethcom.Address
-	erc20ToBEP20           map[ethcom.Address]ethcom.Address
+	mainClient              *ethclient.Client
+	sideClient              *ethclient.Client
+	mainPrivateKey          *ecdsa.PrivateKey
+	sidePrivateKey          *ecdsa.PrivateKey
+	mainChainID             int64
+	sideChainID             int64
+	side20ToMain20           map[ethcom.Address]ethcom.Address
+	main20ToSide20           map[ethcom.Address]ethcom.Address
 
 	mainSwapAgentABI *abi.ABI
 	sideSwapAgentABI *abi.ABI
 
-	ethSwapAgent ethcom.Address
-	bscSwapAgent ethcom.Address
+	mainSwapAgent ethcom.Address
+	sideSwapAgent ethcom.Address
 }
 
 type SwapPairEngine struct {
@@ -86,11 +86,11 @@ type SwapPairEngine struct {
 
 	swapEngine *SwapEngine
 
-	bscClient       *ethclient.Client
-	bscPrivateKey   *ecdsa.PrivateKey
-	bscChainID      int64
-	bscTxSender     ethcom.Address
-	bscSwapAgent    ethcom.Address
+	sideClient       *ethclient.Client
+	sidePrivateKey   *ecdsa.PrivateKey
+	sideChainID      int64
+	sideTxSender     ethcom.Address
+	sideSwapAgent    ethcom.Address
 	sideSwapAgentABI *abi.ABI
 }
 
