@@ -77,10 +77,10 @@ func (e *SideExecutor) GetBlockAndTxEvents(height int64) (*common.BlockAndEventL
 	}, nil
 }
 func (e *SideExecutor) GetLogs(header *types.Header) ([]interface{}, error) {
-	return e.GetSwapStartLogs(header)
+	return e.GetSwapSide2MainEventLogs(header)
 }
 
-func (e *SideExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, error) {
+func (e *SideExecutor) GetSwapSide2MainEventLogs(header *types.Header) ([]interface{}, error) {
 	topics := [][]ethcmm.Hash{{Side2MainSwapStartedEventHash}}
 
 	blockHash := header.Hash()
@@ -110,8 +110,8 @@ func (e *SideExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, er
 
 		eventModel := event.ToSwapStartTxLog(&log)
 		eventModel.Chain = e.Chain
-		util.Logger.Debugf("Found Side2Main swap, txHash: %s, token address: %s, amount: %s, fee amount: %s",
-			eventModel.TxHash, eventModel.TokenAddr, eventModel.Amount, eventModel.FeeAmount)
+		util.Logger.Debugf("Found swap side 2 main event, txHash: %s, sideChainErc20Addr address: %s, mainChainErc20Addr address: %s, mainChainToAddr address: %s, amount: %s, fee amount: %s",
+			eventModel.TxHash, eventModel.SourceChainErc20Addr, eventModel.TargetChainErc20Addr, eventModel.TargetChainToAddr, eventModel.Amount, eventModel.FeeAmount)
 		eventModels = append(eventModels, eventModel)
 	}
 	return eventModels, nil

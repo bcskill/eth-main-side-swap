@@ -11,9 +11,10 @@ import (
 type SwapStartTxLog struct {
 	Id    int64
 	Chain string `gorm:"not null;index:swap_start_tx_log_chain"`
-
-	TokenAddr   string `gorm:"not null"`
-	FromAddress string `gorm:"not null"`
+	Sponsor string `gorm:"not null;index:swap_sponsor"`
+	SourceChainErc20Addr string `gorm:"not null"`
+	TargetChainErc20Addr string `gorm:"not null"`
+	TargetChainToAddr    string `gorm:"not null"`
 	Amount      string `gorm:"not null"`
 	FeeAmount   string `gorm:"not null"`
 
@@ -30,7 +31,7 @@ type SwapStartTxLog struct {
 }
 
 func (SwapStartTxLog) TableName() string {
-	return "swap_start_txs"
+	return "swap_main_side_start_txs"
 }
 
 func (l *SwapStartTxLog) BeforeCreate() (err error) {
@@ -65,8 +66,9 @@ type RetrySwap struct {
 	StartTxHash string                 `gorm:"not null;index:retry_swap_start_tx_hash"`
 	FillTxHash  string                 `gorm:"not null"`
 	Sponsor     string                 `gorm:"not null;index:retry_swap_sponsor"`
-	BEP20Addr   string                 `gorm:"not null;index:retry_swap_bep20_addr"`
-	ERC20Addr   string                 `gorm:"not null;index:retry_swap_erc20_addr"`
+	SourceChainErc20Addr string        `gorm:"not null;index:retry_swap_source_addr"`
+	TargetChainErc20Addr string        `gorm:"not null;index:retry_swap_target_addr"`
+	TargetChainToAddr    string        `gorm:"not null;index:retry_swap_target_to_addr"`
 	Symbol      string                 `gorm:"not null"`
 	Amount      string                 `gorm:"not null"`
 	Decimals    int                    `gorm:"not null"`
@@ -104,9 +106,9 @@ type Swap struct {
 	Status common.SwapStatus `gorm:"not null;index:swap_status"`
 	// the user addreess who start this swap
 	Sponsor string `gorm:"not null;index:swap_sponsor"`
-
-	BEP20Addr string `gorm:"not null;index:swap_bep20_addr"`
-	ERC20Addr string `gorm:"not null;index:swap_erc20_addr"`
+	SourceChainErc20Addr string `gorm:"not null;index:swap_source_addr"`
+	TargetChainErc20Addr string `gorm:"not null;index:swap_target_addr"`
+	TargetChainToAddr string `gorm:"not null;index:swap_target_to_addr"`
 	Symbol    string
 	Amount    string               `gorm:"not null;index:swap_amount"`
 	Decimals  int                  `gorm:"not null"`

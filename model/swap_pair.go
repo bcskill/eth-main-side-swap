@@ -32,8 +32,9 @@ type SwapPairRegisterTxLog struct {
 	Id    int64
 	Chain string `gorm:"not null;index:swappair_register_tx_log_chain"`
 
-	Sponsor   string `gorm:"not null"`
-	ERC20Addr string `gorm:"not null"`
+	Sponsor            string `gorm:"not null"`
+	MainChainErc20Addr string `gorm:"not null"`
+	SideChainFromAddr  string `gorm:"not null"`
 	Symbol    string `gorm:"not null;index:swappair_register_tx_log_symbol"`
 	Name      string `gorm:"not null"`
 	Decimals  int    `gorm:"not null"`

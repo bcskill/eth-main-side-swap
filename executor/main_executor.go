@@ -29,7 +29,7 @@ type MainExecutor struct {
 }
 
 func NewMainExecutor(ethClient *ethclient.Client, swapAddr string, config *util.Config) *MainExecutor {
-	agentAbi, err := abi.JSON(strings.NewReader(agent.MainSwapAgentABI))
+	agentAbi, err := abi.JSON(strings.NewReader(agent.MainSwapAgentMetaData.ABI))
 	if err != nil {
 		panic("marshal abi error")
 	}
@@ -77,7 +77,7 @@ func (e *MainExecutor) GetBlockAndTxEvents(height int64) (*common.BlockAndEventL
 }
 
 func (e *MainExecutor) GetLogs(header *types.Header) ([]interface{}, error) {
-	startEvs, err := e.GetSwapStartLogs(header)
+	startEvs, err := e.GetSwapMain2SideEventLogs(header)
 	if err != nil {
 		return nil, err
 	}
@@ -121,14 +121,14 @@ func (e *MainExecutor) GetSwapPairRegisterLogs(header *types.Header) ([]interfac
 
 		eventModel := event.ToSwapPairRegisterLog(&log)
 		eventModel.Chain = e.Chain
-		util.Logger.Debugf("Found register event, erc20 address: %d, name: %s, symbol: %s, decimals: %d",
-			eventModel.ERC20Addr, eventModel.Name, eventModel.Symbol, eventModel.Decimals)
+		util.Logger.Debugf("Found swap pair register event, Sponsor address: %d, mainChainErc20Addr address: %d, sideChainFromAddr address: %d, name: %s, symbol: %s, decimals: %d",
+			eventModel.Sponsor, eventModel.SideChainFromAddr, eventModel.MainChainErc20Addr, eventModel.Name, eventModel.Symbol, eventModel.Decimals)
 		eventModels = append(eventModels, eventModel)
 	}
 	return eventModels, nil
 }
 
-func (e *MainExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, error) {
+func (e *MainExecutor) GetSwapMain2SideEventLogs(header *types.Header) ([]interface{}, error) {
 	topics := [][]ethcmm.Hash{{Main2SideSwapStartedEventHash}}
 
 	blockHash := header.Hash()
@@ -159,8 +159,8 @@ func (e *MainExecutor) GetSwapStartLogs(header *types.Header) ([]interface{}, er
 
 		eventModel := event.ToSwapStartTxLog(&log)
 		eventModel.Chain = e.Chain
-		util.Logger.Debugf("Found Main2Side swap, txHash: %s, token address: %s, amount: %s, fee amount: %s",
-			eventModel.TxHash, eventModel.TokenAddr, eventModel.Amount, eventModel.FeeAmount)
+		util.Logger.Debugf("Found swap main 2 side event, txHash: %s, mainChainErc20Addr address: %s, sideChainErc20Addr address: %s, SideChainToAddr address: %s, amount: %s, fee amount: %s",
+			eventModel.TxHash, eventModel.SourceChainErc20Addr, eventModel.TargetChainErc20Addr, eventModel.TargetChainToAddr, eventModel.Amount, eventModel.FeeAmount)
 		eventModels = append(eventModels, eventModel)
 	}
 	return eventModels, nil

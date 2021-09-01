@@ -143,8 +143,8 @@ func (engine *SwapEngine) monitorSwapRequestDaemon() {
 }
 
 func (engine *SwapEngine) getSwapHMAC(swap *model.Swap) string {
-	material := fmt.Sprintf("%s#%s#%s#%s#%s#%s#%d#%s#%s#%s",
-		swap.Status, swap.Sponsor, swap.BEP20Addr, swap.ERC20Addr, swap.Symbol, swap.Amount, swap.Decimals, swap.Direction, swap.StartTxHash, swap.FillTxHash)
+	material := fmt.Sprintf("%s#%s#%s#%s#%s#%s#%s#%d#%s#%s#%s",
+		swap.Status, swap.Sponsor, swap.SourceChainErc20Addr, swap.TargetChainErc20Addr, swap.TargetChainToAddr, swap.Symbol, swap.Amount, swap.Decimals, swap.Direction, swap.StartTxHash, swap.FillTxHash)
 	mac := hmac.New(sha256.New, []byte(engine.hmacCKey))
 	mac.Write([]byte(material))
 
@@ -166,7 +166,7 @@ func (engine *SwapEngine) updateSwap(tx *gorm.DB, swap *model.Swap) {
 }
 
 func (engine *SwapEngine) createSwap(txEventLog *model.SwapStartTxLog) *model.Swap {
-	sponsor := txEventLog.FromAddress
+	sponsor := txEventLog.Sponsor
 	amount := txEventLog.Amount
 	swapStartTxHash := txEventLog.TxHash
 	swapDirection := SwapMain2Side
@@ -182,14 +182,14 @@ func (engine *SwapEngine) createSwap(txEventLog *model.SwapStartTxLog) *model.Sw
 	swapStatus := SwapQuoteRejected
 	err := func() error {
 		if txEventLog.Chain == common.ChainMain {
-			erc20Addr = ethcom.HexToAddress(txEventLog.TokenAddr)
-			if bep20Addr, ok = engine.main20ToSide20[ethcom.HexToAddress(txEventLog.TokenAddr)]; !ok {
-				return fmt.Errorf("unsupported main token contract address: %s", txEventLog.TokenAddr)
+			erc20Addr = ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)
+			if bep20Addr, ok = engine.main20ToSide20[ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)]; !ok {
+				return fmt.Errorf("unsupported main token contract address: %s", txEventLog.SourceChainErc20Addr)
 			}
 		} else {
-			bep20Addr = ethcom.HexToAddress(txEventLog.TokenAddr)
-			if erc20Addr, ok = engine.side20ToMain20[ethcom.HexToAddress(txEventLog.TokenAddr)]; !ok {
-				return fmt.Errorf("unsupported side token contract address: %s", txEventLog.TokenAddr)
+			bep20Addr = ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)
+			if erc20Addr, ok = engine.side20ToMain20[ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)]; !ok {
+				return fmt.Errorf("unsupported side token contract address: %s", txEventLog.SourceChainErc20Addr)
 			}
 		}
 		pairInstance, err := engine.GetSwapPairInstance(erc20Addr)
@@ -219,8 +219,9 @@ func (engine *SwapEngine) createSwap(txEventLog *model.SwapStartTxLog) *model.Sw
 	swap := &model.Swap{
 		Status:      swapStatus,
 		Sponsor:     sponsor,
-		BEP20Addr:   bep20Addr.String(),
-		ERC20Addr:   erc20Addr.String(),
+		SourceChainErc20Addr:   ethcom.HexToAddress(txEventLog.SourceChainErc20Addr).String(),
+		TargetChainErc20Addr:   ethcom.HexToAddress(txEventLog.TargetChainErc20Addr).String(),
+		TargetChainToAddr:      ethcom.HexToAddress(txEventLog.TargetChainToAddr).String(),
 		Symbol:      symbol,
 		Amount:      amount,
 		Decimals:    decimals,
@@ -301,9 +302,9 @@ func (engine *SwapEngine) swapInstanceDaemon(direction common.SwapDirection) {
 				if !engine.verifySwap(&swap) {
 					return fmt.Errorf("verify hmac of swap failed: %s", swap.StartTxHash)
 				}
-				swapPairInstance, err = engine.GetSwapPairInstance(ethcom.HexToAddress(swap.ERC20Addr))
+				swapPairInstance, err = engine.GetSwapPairInstance(ethcom.HexToAddress(swap.SourceChainErc20Addr))
 				if err != nil {
-					return fmt.Errorf("swap instance for bep20 %s doesn't exist, skip this swap", swap.BEP20Addr)
+					return fmt.Errorf("swap instance for bep20 %s doesn't exist, skip this swap", swap.TargetChainErc20Addr)
 				}
 				return nil
 			}()
@@ -368,7 +369,7 @@ func (engine *SwapEngine) swapInstanceDaemon(direction common.SwapDirection) {
 				continue
 			}
 
-			util.Logger.Infof("Swap token %s, direction %s, sponsor: %s, amount %s, decimals %d", swap.BEP20Addr, direction, swap.Sponsor, swap.Amount, swap.Decimals)
+			util.Logger.Infof("Swap token %s, direction %s, sponsor: %s, amount %s, decimals %d", swap.TargetChainErc20Addr, direction, swap.Sponsor, swap.Amount, swap.Decimals)
 			swapTx, swapErr := engine.doSwap(&swap, swapPairInstance)
 
 			writeDBErr = func() error {

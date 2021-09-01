@@ -7,8 +7,8 @@ const (
 	ObserverPruneInterval  = 10 * time.Second
 	ObserverAlertInterval  = 5 * time.Second
 
-	ChainSide = "Side" // binance smart chain
-	ChainMain = "Main" // ethereum
+	ChainSide = "Side" // side chain
+	ChainMain = "Main" // main chain
 
 	VaultName = "Side_Main_SWAP"
 

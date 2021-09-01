@@ -26,9 +26,9 @@ import (
 )
 
 func (engine *SwapEngine) getRetrySwapHMAC(retrySwap *model.RetrySwap) string {
-	material := fmt.Sprintf("%d#%s#%s#%s#%s#%s#%s#%s#%s#%d#%s",
+	material := fmt.Sprintf("%d#%s#%s#%s#%s#%s#%s#%s#%s#%s#%d#%s",
 		retrySwap.SwapID, retrySwap.Direction, retrySwap.StartTxHash, retrySwap.FillTxHash, retrySwap.Sponsor,
-		retrySwap.BEP20Addr, retrySwap.ERC20Addr, retrySwap.Symbol, retrySwap.Amount, retrySwap.Decimals, retrySwap.Status)
+		retrySwap.SourceChainErc20Addr, retrySwap.TargetChainErc20Addr, retrySwap.TargetChainToAddr, retrySwap.Symbol, retrySwap.Amount, retrySwap.Decimals, retrySwap.Status)
 	mac := hmac.New(sha256.New, []byte(engine.hmacCKey))
 	mac.Write([]byte(material))
 
@@ -155,9 +155,9 @@ func (engine *SwapEngine) retryFailedSwapsDaemon() {
 				if !valid {
 					return fmt.Errorf("verify hmac of retry swap failed: %s", retrySwap.StartTxHash)
 				}
-				swapPairInstance, err = engine.GetSwapPairInstance(ethcom.HexToAddress(retrySwap.ERC20Addr))
+				swapPairInstance, err = engine.GetSwapPairInstance(ethcom.HexToAddress(retrySwap.SourceChainErc20Addr))
 				if err != nil {
-					return fmt.Errorf("failed to get swap instance for erc20 %s, err: %s, skip this swap", retrySwap.ERC20Addr, err.Error())
+					return fmt.Errorf("failed to get swap instance for erc20 %s, err: %s, skip this swap", retrySwap.SourceChainErc20Addr, err.Error())
 				}
 				return nil
 			}()
@@ -222,8 +222,8 @@ func (engine *SwapEngine) retryFailedSwapsDaemon() {
 				continue
 			}
 
-			util.Logger.Infof("Retry to handle swap, id: %d, direction %s, symbol %s, bep20 address %s, erc20 address %s, amount %s, sponsor %s",
-				retrySwap.ID, retrySwap.Direction, retrySwap.Symbol, retrySwap.BEP20Addr, retrySwap.ERC20Addr, retrySwap.Amount, retrySwap.Sponsor)
+			util.Logger.Infof("Retry to handle swap, id: %d, direction %s, symbol %s, source chain address %s, target chain address %s, target to chain address %s, amount %s, sponsor %s",
+				retrySwap.ID, retrySwap.Direction, retrySwap.Symbol, retrySwap.SourceChainErc20Addr, retrySwap.TargetChainErc20Addr, retrySwap.TargetChainToAddr, retrySwap.Amount, retrySwap.Sponsor)
 
 			retrySwapTx, doRetrySwapErr := engine.doRetrySwap(&retrySwap, swapPairInstance)
 			writeDBErr = func() error {
@@ -480,8 +480,9 @@ func (engine *SwapEngine) InsertRetryFailedSwaps(swapIDList []uint) ([]uint, []u
 				StartTxHash: swap.StartTxHash,
 				FillTxHash:  swap.FillTxHash,
 				Sponsor:     swap.Sponsor,
-				BEP20Addr:   swap.BEP20Addr,
-				ERC20Addr:   swap.ERC20Addr,
+				SourceChainErc20Addr:   swap.SourceChainErc20Addr,
+				TargetChainErc20Addr:   swap.TargetChainErc20Addr,
+				TargetChainToAddr:      swap.TargetChainToAddr,
 				Symbol:      swap.Symbol,
 				Amount:      swap.Amount,
 				Decimals:    swap.Decimals,

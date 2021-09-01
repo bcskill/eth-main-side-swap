@@ -105,7 +105,7 @@ func (engine *SwapPairEngine) createSwapPairSM(txEventLog *model.SwapPairRegiste
 
 	swapPairRegisterTxHash := txEventLog.TxHash
 
-	mainContractAddr := ethcom.HexToAddress(txEventLog.ERC20Addr)
+	mainContractAddr := ethcom.HexToAddress(txEventLog.MainChainErc20Addr)
 	swapPairStatus := SwapPairReceived
 	// TODO, duplicate check
 	swapSM := &model.SwapPairStateMachine{

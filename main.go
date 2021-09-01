@@ -107,12 +107,12 @@ func main() {
 
 	sideClient, err := ethclient.Dial(config.ChainConfig.SideProvider)
 	if err != nil {
-		panic("new eth client error")
+		panic("new side client error")
 	}
 
 	mainClient, err := ethclient.Dial(config.ChainConfig.MainProvider)
 	if err != nil {
-		panic("new eth client error")
+		panic("new main client error")
 	}
 
 	sideExecutor := executor.NewSideExecutor(sideClient, config.ChainConfig.SideSwapAgentAddr, config)
