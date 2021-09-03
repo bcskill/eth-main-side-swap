@@ -108,7 +108,7 @@ var (
 type SwapPairRegisterEvent struct {
 	Sponsor            ethcmm.Address
 	MainChainErc20Addr ethcmm.Address
-	SideChainFromAddr  ethcmm.Address
+	SideChainErc20Addr  ethcmm.Address
 	Name         string
 	Symbol       string
 	Decimals     uint8
@@ -118,7 +118,7 @@ func (ev *SwapPairRegisterEvent) ToSwapPairRegisterLog(log *types.Log) *model.Sw
 	pack := &model.SwapPairRegisterTxLog{
 		Sponsor:            ev.Sponsor.String(),
 		MainChainErc20Addr: ev.MainChainErc20Addr.String(),
-		SideChainFromAddr:  ev.SideChainFromAddr.String(),
+		SideChainErc20Addr:  ev.SideChainErc20Addr.String(),
 		Symbol:    ev.Symbol,
 		Name:      ev.Name,
 		Decimals:  int(ev.Decimals),
@@ -139,7 +139,7 @@ func ParseSwapPairRegisterEvent(abi *abi.ABI, log *types.Log) (*SwapPairRegister
 	}
 	ev.Sponsor = ethcmm.BytesToAddress(log.Topics[1].Bytes())
 	ev.MainChainErc20Addr = ethcmm.BytesToAddress(log.Topics[2].Bytes())
-	ev.SideChainFromAddr = ethcmm.BytesToAddress(log.Topics[3].Bytes())
+	ev.SideChainErc20Addr = ethcmm.BytesToAddress(log.Topics[3].Bytes())
 
 	return &ev, nil
 }

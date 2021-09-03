@@ -110,8 +110,8 @@ func (engine *SwapPairEngine) createSwapPairSM(txEventLog *model.SwapPairRegiste
 	// TODO, duplicate check
 	swapSM := &model.SwapPairStateMachine{
 		Status:    swapPairStatus,
-		ERC20Addr: mainContractAddr.String(),
-		BEP20Addr: "",
+		MainChainErc20Addr: mainContractAddr.String(),
+		SideChainErc20Addr: "",
 		Sponsor:   txEventLog.Sponsor,
 		Symbol:    txEventLog.Symbol,
 		Name:      txEventLog.Name,
@@ -147,7 +147,7 @@ func (engine *SwapPairEngine) verifySwapPairSM(swapPairSM *model.SwapPairStateMa
 
 func (engine *SwapPairEngine) getSwapPairSMHMAC(swapSM *model.SwapPairStateMachine) string {
 	material := fmt.Sprintf("%s#%s#%s#%s#%d#%s#%s#%s",
-		swapSM.Status, swapSM.ERC20Addr, swapSM.BEP20Addr, swapSM.Symbol, swapSM.Decimals, swapSM.Name, swapSM.PairRegisterTxHash, swapSM.PairCreatTxHash)
+		swapSM.Status, swapSM.MainChainErc20Addr, swapSM.SideChainErc20Addr, swapSM.Symbol, swapSM.Decimals, swapSM.Name, swapSM.PairRegisterTxHash, swapSM.PairCreatTxHash)
 	mac := hmac.New(sha256.New, []byte(engine.hmacKey))
 	mac.Write([]byte(material))
 	return hex.EncodeToString(mac.Sum(nil))
@@ -155,7 +155,7 @@ func (engine *SwapPairEngine) getSwapPairSMHMAC(swapSM *model.SwapPairStateMachi
 
 func (engine *SwapPairEngine) getSwapPairHMAC(swapSM *model.SwapPair) string {
 	material := fmt.Sprintf("#%s#%s#%s#%d#%s",
-		swapSM.ERC20Addr, swapSM.BEP20Addr, swapSM.Symbol, swapSM.Decimals, swapSM.Name)
+		swapSM.MainChainErc20Addr, swapSM.SideChainErc20Addr, swapSM.Symbol, swapSM.Decimals, swapSM.Name)
 	mac := hmac.New(sha256.New, []byte(engine.hmacKey))
 	mac.Write([]byte(material))
 	return hex.EncodeToString(mac.Sum(nil))
@@ -280,7 +280,7 @@ func (engine *SwapPairEngine) swapPairInstanceDaemon() {
 				continue
 			}
 
-			util.Logger.Infof("do swapPairSM, erc20 address %s, symbol %s", swapPairSM.ERC20Addr, swapPairSM.Symbol)
+			util.Logger.Infof("do swapPairSM, main chain erc20 address %s, side chain erc20 address %s, symbol %s", swapPairSM.MainChainErc20Addr, swapPairSM.SideChainErc20Addr, swapPairSM.Symbol)
 			swapPairCreateTx, swapErr := engine.doCreateSwapPair(&swapPairSM)
 
 			writeDBErr = func() error {
@@ -338,7 +338,7 @@ func (engine *SwapPairEngine) doCreateSwapPair(swapPairSM *model.SwapPairStateMa
 
 	sideClientMutex.Lock()
 	defer sideClientMutex.Unlock()
-	data, err := abiEncodeCreateSwapPair(ethcom.HexToHash(swapPairSM.PairRegisterTxHash), ethcom.HexToAddress(swapPairSM.ERC20Addr), swapPairSM.Name, swapPairSM.Symbol, uint8(swapPairSM.Decimals), engine.sideSwapAgentABI)
+	data, err := abiEncodeCreateSwapPair(ethcom.HexToHash(swapPairSM.PairRegisterTxHash), ethcom.HexToAddress(swapPairSM.MainChainErc20Addr), ethcom.HexToAddress(swapPairSM.SideChainErc20Addr), swapPairSM.Name, swapPairSM.Symbol, uint8(swapPairSM.Decimals), engine.sideSwapAgentABI)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +349,8 @@ func (engine *SwapPairEngine) doCreateSwapPair(swapPairSM *model.SwapPairStateMa
 	swapTx := &model.SwapPairCreatTx{
 		SwapPairRegisterTxHash: swapPairSM.PairRegisterTxHash,
 		SwapPairCreatTxHash:    signedTx.Hash().String(),
-		ERC20Addr:              swapPairSM.ERC20Addr,
+		MainChainErc20Addr:     swapPairSM.MainChainErc20Addr,
+		SideChainErc20Addr:      swapPairSM.SideChainErc20Addr,
 		Symbol:                 swapPairSM.Symbol,
 		Name:                   swapPairSM.Name,
 		Decimals:               swapPairSM.Decimals,
@@ -503,7 +504,7 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 							engine.updateSwapPairSM(tx, swapPairSM)
 						} else {
 							bep20ContractAddr, err := queryDeployedBEP20ContractAddr(
-								ethcom.HexToAddress(swapPairTx.ERC20Addr),
+								ethcom.HexToAddress(swapPairTx.MainChainErc20Addr),
 								ethcom.HexToAddress(engine.config.ChainConfig.SideSwapAgentAddr),
 								txRecipient,
 								engine.sideClient)
@@ -525,7 +526,7 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 								return err
 							}
 							swapPairSM.Status = SwapPairSuccess
-							swapPairSM.BEP20Addr = bep20ContractAddr.String()
+							swapPairSM.SideChainErc20Addr = bep20ContractAddr.String()
 							engine.updateSwapPairSM(tx, swapPairSM)
 						}
 					}
@@ -562,8 +563,8 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 					Symbol:     swapPairSM.Symbol,
 					Name:       swapPairSM.Name,
 					Decimals:   swapPairSM.Decimals,
-					BEP20Addr:  swapPairSM.BEP20Addr,
-					ERC20Addr:  swapPairSM.ERC20Addr,
+					MainChainErc20Addr:  swapPairSM.MainChainErc20Addr,
+					SideChainErc20Addr:  swapPairSM.SideChainErc20Addr,
 					Available:  true,
 					LowBound:   "0",
 					UpperBound: MaxUpperBound,

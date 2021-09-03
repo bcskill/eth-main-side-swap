@@ -1108,7 +1108,7 @@ func (it *MainSwapAgentSwapPairRegisterEventIterator) Close() error {
 type MainSwapAgentSwapPairRegisterEvent struct {
 	Sponsor            common.Address
 	MainChainErc20Addr common.Address
-	SideChainFromAddr  common.Address
+	SideChainErc20Addr  common.Address
 	Name               string
 	Symbol             string
 	Decimals           uint8

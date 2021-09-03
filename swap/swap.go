@@ -35,8 +35,8 @@ func NewSwapEngine(db *gorm.DB, cfg *util.Config, sideClient, mainClient *ethcli
 	sideContractAddrToMainContractAddr := make(map[ethcom.Address]ethcom.Address)
 	mainContractAddrToSideContractAddr := make(map[ethcom.Address]ethcom.Address)
 	for _, token := range pairs {
-		sideContractAddrToMainContractAddr[ethcom.HexToAddress(token.BEP20Addr)] = ethcom.HexToAddress(token.ERC20Addr)
-		mainContractAddrToSideContractAddr[ethcom.HexToAddress(token.ERC20Addr)] = ethcom.HexToAddress(token.BEP20Addr)
+		mainContractAddrToSideContractAddr[ethcom.HexToAddress(token.MainChainErc20Addr)] = ethcom.HexToAddress(token.SideChainErc20Addr)
+		sideContractAddrToMainContractAddr[ethcom.HexToAddress(token.SideChainErc20Addr)] = ethcom.HexToAddress(token.MainChainErc20Addr)
 	}
 
 	keyConfig, err := GetKeyConfig(cfg)
@@ -443,7 +443,7 @@ func (engine *SwapEngine) doSwap(swap *model.Swap, swapPairInstance *SwapPairIns
 	if swap.Direction == SwapMain2Side {
 		sideClientMutex.Lock()
 		defer sideClientMutex.Unlock()
-		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(swap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(swap.Sponsor), amount, engine.sideSwapAgentABI)
+		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(swap.StartTxHash), swapPairInstance.MainChainErc20Addr, swapPairInstance.SideChainErc20Addr, amount, engine.sideSwapAgentABI)
 		if err != nil {
 			return nil, err
 		}
@@ -472,7 +472,7 @@ func (engine *SwapEngine) doSwap(swap *model.Swap, swapPairInstance *SwapPairIns
 	} else {
 		mainClientMutex.Lock()
 		defer mainClientMutex.Unlock()
-		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(swap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(swap.Sponsor), amount, engine.mainSwapAgentABI)
+		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(swap.StartTxHash), swapPairInstance.MainChainErc20Addr, swapPairInstance.SideChainErc20Addr, amount, engine.mainSwapAgentABI)
 		signedTx, err := buildSignedTransaction(engine.mainSwapAgent, engine.mainClient, data, engine.mainPrivateKey)
 		if err != nil {
 			return nil, err
@@ -704,19 +704,19 @@ func (engine *SwapEngine) AddSwapPairInstance(swapPair *model.SwapPair) error {
 
 	engine.mutex.Lock()
 	defer engine.mutex.Unlock()
-	engine.swapPairsFromERC20Addr[ethcom.HexToAddress(swapPair.ERC20Addr)] = &SwapPairIns{
+	engine.swapPairsFromERC20Addr[ethcom.HexToAddress(swapPair.MainChainErc20Addr)] = &SwapPairIns{
 		Symbol:     swapPair.Symbol,
 		Name:       swapPair.Name,
 		Decimals:   swapPair.Decimals,
 		LowBound:   lowBound,
 		UpperBound: upperBound,
-		BEP20Addr:  ethcom.HexToAddress(swapPair.BEP20Addr),
-		ERC20Addr:  ethcom.HexToAddress(swapPair.ERC20Addr),
+		MainChainErc20Addr:  ethcom.HexToAddress(swapPair.MainChainErc20Addr),
+		SideChainErc20Addr:  ethcom.HexToAddress(swapPair.SideChainErc20Addr),
 	}
-	engine.side20ToMain20[ethcom.HexToAddress(swapPair.BEP20Addr)] = ethcom.HexToAddress(swapPair.ERC20Addr)
-	engine.main20ToSide20[ethcom.HexToAddress(swapPair.ERC20Addr)] = ethcom.HexToAddress(swapPair.BEP20Addr)
+	engine.main20ToSide20[ethcom.HexToAddress(swapPair.MainChainErc20Addr)] = ethcom.HexToAddress(swapPair.SideChainErc20Addr)
+	engine.side20ToMain20[ethcom.HexToAddress(swapPair.SideChainErc20Addr)] = ethcom.HexToAddress(swapPair.MainChainErc20Addr)
 
-	util.Logger.Infof("Create new swap pair, symbol %s, bep20 address %s, erc20 address %s", swapPair.Symbol, swapPair.BEP20Addr, swapPair.ERC20Addr)
+	util.Logger.Infof("Create new swap pair, symbol %s, main chain address %s, side chain address %s", swapPair.Symbol, swapPair.MainChainErc20Addr,swapPair.SideChainErc20Addr)
 
 	return nil
 }
@@ -736,7 +736,7 @@ func (engine *SwapEngine) UpdateSwapInstance(swapPair *model.SwapPair) {
 	engine.mutex.Lock()
 	defer engine.mutex.Unlock()
 
-	sideTokenAddr := ethcom.HexToAddress(swapPair.BEP20Addr)
+	sideTokenAddr := ethcom.HexToAddress(swapPair.SideChainErc20Addr)
 	tokenInstance, ok := engine.swapPairsFromERC20Addr[sideTokenAddr]
 	if !ok {
 		return

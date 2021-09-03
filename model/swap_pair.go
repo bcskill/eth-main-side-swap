@@ -14,8 +14,8 @@ type SwapPair struct {
 	Symbol     string `gorm:"not null;index:symbol"`
 	Name       string `gorm:"not null"`
 	Decimals   int    `gorm:"not null"`
-	BEP20Addr  string `gorm:"not null"`
-	ERC20Addr  string `gorm:"not null"`
+	MainChainErc20Addr string `gorm:"not null"`
+	SideChainErc20Addr  string `gorm:"not null"`
 	Available  bool   `gorm:"not null;index:available"`
 	LowBound   string `gorm:"not null"`
 	UpperBound string `gorm:"not null"`
@@ -34,7 +34,7 @@ type SwapPairRegisterTxLog struct {
 
 	Sponsor            string `gorm:"not null"`
 	MainChainErc20Addr string `gorm:"not null"`
-	SideChainFromAddr  string `gorm:"not null"`
+	SideChainErc20Addr  string `gorm:"not null"`
 	Symbol    string `gorm:"not null;index:swappair_register_tx_log_symbol"`
 	Name      string `gorm:"not null"`
 	Decimals  int    `gorm:"not null"`
@@ -67,8 +67,8 @@ type SwapPairCreatTx struct {
 	SwapPairRegisterTxHash string `gorm:"unique;not null"`
 	SwapPairCreatTxHash    string `gorm:"unique;not null"`
 
-	ERC20Addr string `gorm:"not null"`
-
+	MainChainErc20Addr string `gorm:"not null"`
+	SideChainErc20Addr  string `gorm:"not null"`
 	Symbol   string `gorm:"not null;index:swap_pair_creat_tx_symbol"`
 	Name     string `gorm:"not null"`
 	Decimals int    `gorm:"not null"`
@@ -89,10 +89,9 @@ type SwapPairStateMachine struct {
 
 	Status common.SwapPairStatus `gorm:"not null;index:swap_pair_sm_status"`
 
-	ERC20Addr string `gorm:"not null"`
-	BEP20Addr string
-
 	Sponsor  string `gorm:"not null"`
+	MainChainErc20Addr string `gorm:"not null"`
+	SideChainErc20Addr  string `gorm:"not null"`
 	Symbol   string `gorm:"not null;index:swap_pair_sm_symbol"`
 	Name     string `gorm:"not null"`
 	Decimals int    `gorm:"not null"`

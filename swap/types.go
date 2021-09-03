@@ -101,6 +101,6 @@ type SwapPairIns struct {
 	LowBound   *big.Int
 	UpperBound *big.Int
 
-	BEP20Addr ethcom.Address
-	ERC20Addr ethcom.Address
+	MainChainErc20Addr ethcom.Address
+	SideChainErc20Addr ethcom.Address
 }

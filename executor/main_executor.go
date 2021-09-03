@@ -122,7 +122,7 @@ func (e *MainExecutor) GetSwapPairRegisterLogs(header *types.Header) ([]interfac
 		eventModel := event.ToSwapPairRegisterLog(&log)
 		eventModel.Chain = e.Chain
 		util.Logger.Debugf("Found swap pair register event, Sponsor address: %d, mainChainErc20Addr address: %d, sideChainFromAddr address: %d, name: %s, symbol: %s, decimals: %d",
-			eventModel.Sponsor, eventModel.SideChainFromAddr, eventModel.MainChainErc20Addr, eventModel.Name, eventModel.Symbol, eventModel.Decimals)
+			eventModel.Sponsor, eventModel.SideChainErc20Addr, eventModel.MainChainErc20Addr, eventModel.Name, eventModel.Symbol, eventModel.Decimals)
 		eventModels = append(eventModels, eventModel)
 	}
 	return eventModels, nil

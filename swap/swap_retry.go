@@ -85,7 +85,7 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 	if retrySwap.Direction == SwapMain2Side {
 		sideClientMutex.Lock()
 		defer sideClientMutex.Unlock()
-		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(retrySwap.Sponsor), amount, engine.sideSwapAgentABI)
+		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.MainChainErc20Addr, swapPairInstance.SideChainErc20Addr, amount, engine.sideSwapAgentABI)
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +115,7 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 	} else {
 		mainClientMutex.Lock()
 		defer mainClientMutex.Unlock()
-		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.ERC20Addr, ethcom.HexToAddress(retrySwap.Sponsor), amount, engine.mainSwapAgentABI)
+		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.MainChainErc20Addr, swapPairInstance.SideChainErc20Addr, amount, engine.mainSwapAgentABI)
 		signedTx, err := buildSignedTransaction(engine.mainSwapAgent, engine.mainClient, data, engine.mainPrivateKey)
 		if err != nil {
 			return nil, err

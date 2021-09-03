@@ -39,17 +39,17 @@ func buildSwapPairInstance(pairs []model.SwapPair) (map[ethcom.Address]*SwapPair
 			panic(fmt.Sprintf("invalid upperBound amount: %s", pair.LowBound))
 		}
 
-		swapPairInstances[ethcom.HexToAddress(pair.ERC20Addr)] = &SwapPairIns{
+		swapPairInstances[ethcom.HexToAddress(pair.MainChainErc20Addr)] = &SwapPairIns{
 			Symbol:     pair.Symbol,
 			Name:       pair.Name,
 			Decimals:   pair.Decimals,
 			LowBound:   lowBound,
 			UpperBound: upperBound,
-			BEP20Addr:  ethcom.HexToAddress(pair.BEP20Addr),
-			ERC20Addr:  ethcom.HexToAddress(pair.ERC20Addr),
+			MainChainErc20Addr:  ethcom.HexToAddress(pair.MainChainErc20Addr),
+			SideChainErc20Addr:  ethcom.HexToAddress(pair.SideChainErc20Addr),
 		}
 
-		util.Logger.Infof("Load swap pair, symbol %s, bep20 address %s, erc20 address %s", pair.Symbol, pair.BEP20Addr, pair.ERC20Addr)
+		util.Logger.Infof("Load swap pair, symbol %s, main chain address %s, side chain address %s", pair.Symbol, pair.MainChainErc20Addr, pair.SideChainErc20Addr)
 	}
 
 	return swapPairInstances, nil
@@ -79,8 +79,8 @@ func GetKeyConfig(cfg *util.Config) (*util.KeyConfig, error) {
 	}
 }
 
-func abiEncodeFillMain2SideSwap(mainTxHash ethcom.Hash, erc20Addr ethcom.Address, toAddress ethcom.Address, amount *big.Int, abi *abi.ABI) ([]byte, error) {
-	data, err := abi.Pack("fillMain2SideSwap", mainTxHash, erc20Addr, toAddress, amount)
+func abiEncodeFillMain2SideSwap(mainChainTxHash ethcom.Hash, mainChainErc20Addr ethcom.Address, sideChainToAddr ethcom.Address, amount *big.Int, abi *abi.ABI) ([]byte, error) {
+	data, err := abi.Pack("fillMain2SideSwap", mainChainTxHash, mainChainErc20Addr, sideChainToAddr, amount)
 	if err != nil {
 		return nil, err
 	}
@@ -103,8 +103,8 @@ func abiEncodeFillSide2MainSwap(mainTxHash ethcom.Hash, erc20Addr ethcom.Address
 	return data, nil
 }
 
-func abiEncodeCreateSwapPair(registerTxHash ethcom.Hash, erc20Addr ethcom.Address, name, symbol string, decimals uint8, abi *abi.ABI) ([]byte, error) {
-	data, err := abi.Pack("createSwapPair", registerTxHash, erc20Addr, name, symbol, decimals)
+func abiEncodeCreateSwapPair(mainChainTxHash ethcom.Hash, mainChainErc20Addr ethcom.Address, sideChainErc20Addr ethcom.Address, name, symbol string, decimals uint8, abi *abi.ABI) ([]byte, error) {
+	data, err := abi.Pack("createSwapPair", mainChainTxHash, mainChainErc20Addr, sideChainErc20Addr, name, symbol, decimals)
 	if err != nil {
 		return nil, err
 	}
