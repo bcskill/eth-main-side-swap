@@ -106,12 +106,13 @@ func (engine *SwapPairEngine) createSwapPairSM(txEventLog *model.SwapPairRegiste
 	swapPairRegisterTxHash := txEventLog.TxHash
 
 	mainContractAddr := ethcom.HexToAddress(txEventLog.MainChainErc20Addr)
+	sideContractAddr := ethcom.HexToAddress(txEventLog.SideChainErc20Addr)
 	swapPairStatus := SwapPairReceived
 	// TODO, duplicate check
 	swapSM := &model.SwapPairStateMachine{
 		Status:    swapPairStatus,
 		MainChainErc20Addr: mainContractAddr.String(),
-		SideChainErc20Addr: "",
+		SideChainErc20Addr: sideContractAddr.String(),
 		Sponsor:   txEventLog.Sponsor,
 		Symbol:    txEventLog.Symbol,
 		Name:      txEventLog.Name,
