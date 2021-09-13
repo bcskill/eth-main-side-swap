@@ -19,13 +19,13 @@ type Executor interface {
 var (
 	SwapMain2SideEventName        = "SwapMain2SideEvent"
 	SwapSide2MainEventName        = "SwapSide2MainEvent"
-	Main2SideSwapStartedEventHash = ethcmm.HexToHash("0x64bf044f989e78b5431b2fd639882f746b1795ff367b910eed4136d067fa390e")
-	Side2MainSwapStartedEventHash = ethcmm.HexToHash("0x7090729cb71d105f50d09825b7425766b047a5d225e26e73ceb1d6fd4d9c1e58")
+	Main2SideSwapStartedEventHash = ethcmm.HexToHash("0x42733bad7741b9044a0b058e7d8038dc72cdd877c6eec0d1db3b57f02be7eb81")
+	Side2MainSwapStartedEventHash = ethcmm.HexToHash("0xf19f19fa7d4ae2e098cbb45838aa7151ba4813912afa00a24e5c0a71599ee948")
 )
 
 type Main2SideSwapStartedEvent struct {
+	Sponsor             ethcmm.Address
 	MainChainErc20Addr  ethcmm.Address
-	SideChainErc20Addr  ethcmm.Address
 	SideChainToAddr     ethcmm.Address
 	Amount              *big.Int
 	FeeAmount           *big.Int
@@ -33,10 +33,11 @@ type Main2SideSwapStartedEvent struct {
 
 func (ev *Main2SideSwapStartedEvent) ToSwapStartTxLog(log *types.Log) *model.SwapStartTxLog {
 	pack := &model.SwapStartTxLog{
+		Sponsor:                ev.Sponsor.String(),
 		SourceChainErc20Addr:   ev.MainChainErc20Addr.String(),
-		TargetChainErc20Addr:   ev.SideChainErc20Addr.String(),
 		TargetChainToAddr:      ev.SideChainToAddr.String(),
 		Amount:               ev.Amount.String(),
+
 		FeeAmount:            ev.FeeAmount.String(),
 		BlockHash:            log.BlockHash.Hex(),
 		TxHash:               log.TxHash.String(),
@@ -53,16 +54,16 @@ func ParseMain2SideSwapStartEvent(abi *abi.ABI, log *types.Log) (*Main2SideSwapS
 		return nil, err
 	}
 
-	ev.MainChainErc20Addr = ethcmm.BytesToAddress(log.Topics[1].Bytes())
-	ev.SideChainErc20Addr = ethcmm.BytesToAddress(log.Topics[2].Bytes())
+	ev.Sponsor = ethcmm.BytesToAddress(log.Topics[1].Bytes())
+	ev.MainChainErc20Addr = ethcmm.BytesToAddress(log.Topics[2].Bytes())
 	ev.SideChainToAddr =    ethcmm.BytesToAddress(log.Topics[3].Bytes())
 
 	return &ev, nil
 }
 
 type Side2MainSwapStartedEvent struct {
+	Sponsor            ethcmm.Address
 	SideChainErc20Addr ethcmm.Address
-	MainChainErc20Addr ethcmm.Address
 	MainChainToAddr    ethcmm.Address
 	Amount             *big.Int
 	FeeAmount          *big.Int
@@ -70,8 +71,8 @@ type Side2MainSwapStartedEvent struct {
 
 func (ev *Side2MainSwapStartedEvent) ToSwapStartTxLog(log *types.Log) *model.SwapStartTxLog {
 	pack := &model.SwapStartTxLog{
+		Sponsor: ev.Sponsor.String(),
 		SourceChainErc20Addr: ev.SideChainErc20Addr.String(),
-		TargetChainErc20Addr:   ev.MainChainErc20Addr.String(),
 		TargetChainToAddr: ev.MainChainToAddr.String(),
 		Amount:      ev.Amount.String(),
 
@@ -91,8 +92,8 @@ func ParseSide2MainSwapStartEvent(abi *abi.ABI, log *types.Log) (*Side2MainSwapS
 		return nil, err
 	}
 
-	ev.SideChainErc20Addr = ethcmm.BytesToAddress(log.Topics[1].Bytes())
-	ev.MainChainErc20Addr = ethcmm.BytesToAddress(log.Topics[2].Bytes())
+	ev.Sponsor = ethcmm.BytesToAddress(log.Topics[1].Bytes())
+	ev.SideChainErc20Addr = ethcmm.BytesToAddress(log.Topics[2].Bytes())
 	ev.MainChainToAddr = ethcmm.BytesToAddress(log.Topics[3].Bytes())
 
 	return &ev, nil

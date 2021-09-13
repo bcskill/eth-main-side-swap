@@ -504,15 +504,6 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 							swapPairSM.Log = "create swapPairSM pair tx is failed"
 							engine.updateSwapPairSM(tx, swapPairSM)
 						} else {
-							bep20ContractAddr, err := queryDeployedBEP20ContractAddr(
-								ethcom.HexToAddress(swapPairTx.MainChainErc20Addr),
-								ethcom.HexToAddress(engine.config.ChainConfig.SideSwapAgentAddr),
-								txRecipient,
-								engine.sideClient)
-							if err != nil {
-								tx.Rollback()
-								return err
-							}
 							tx.Model(model.SwapPairCreatTx{}).Where("id = ?", swapPairTx.ID).Updates(
 								map[string]interface{}{
 									"status":              model.FillTxSuccess,
@@ -527,7 +518,6 @@ func (engine *SwapPairEngine) trackSwapPairTxDaemon() {
 								return err
 							}
 							swapPairSM.Status = SwapPairSuccess
-							swapPairSM.SideChainErc20Addr = bep20ContractAddr.String()
 							engine.updateSwapPairSM(tx, swapPairSM)
 						}
 					}

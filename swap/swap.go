@@ -369,7 +369,7 @@ func (engine *SwapEngine) swapInstanceDaemon(direction common.SwapDirection) {
 				continue
 			}
 
-			util.Logger.Infof("Swap token %s, direction %s, sponsor: %s, amount %s, decimals %d", swap.TargetChainErc20Addr, direction, swap.Sponsor, swap.Amount, swap.Decimals)
+			util.Logger.Infof("Swap token direction %s, %s, %s, sponsor: %s, amount %s, decimals %d", direction, swap.SourceChainErc20Addr, swap.TargetChainToAddr, swap.Sponsor, swap.Amount, swap.Decimals)
 			swapTx, swapErr := engine.doSwap(&swap, swapPairInstance)
 
 			writeDBErr = func() error {

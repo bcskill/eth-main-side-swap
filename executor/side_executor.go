@@ -110,8 +110,8 @@ func (e *SideExecutor) GetSwapSide2MainEventLogs(header *types.Header) ([]interf
 
 		eventModel := event.ToSwapStartTxLog(&log)
 		eventModel.Chain = e.Chain
-		util.Logger.Debugf("Found swap side 2 main event, txHash: %s, sideChainErc20Addr address: %s, mainChainErc20Addr address: %s, mainChainToAddr address: %s, amount: %s, fee amount: %s",
-			eventModel.TxHash, eventModel.SourceChainErc20Addr, eventModel.TargetChainErc20Addr, eventModel.TargetChainToAddr, eventModel.Amount, eventModel.FeeAmount)
+		util.Logger.Debugf("Found swap side 2 main event, txHash: %s, sideChainErc20Addr address: %s, mainChainToAddr address: %s, amount: %s, fee amount: %s",
+			eventModel.TxHash, eventModel.SourceChainErc20Addr, eventModel.TargetChainToAddr, eventModel.Amount, eventModel.FeeAmount)
 		eventModels = append(eventModels, eventModel)
 	}
 	return eventModels, nil
