@@ -369,7 +369,7 @@ func (engine *SwapEngine) swapInstanceDaemon(direction common.SwapDirection) {
 				continue
 			}
 
-			util.Logger.Infof("Swap token direction %s, %s, %s, sponsor: %s, amount %s, decimals %d", direction, swap.SourceChainErc20Addr, swap.TargetChainToAddr, swap.Sponsor, swap.Amount, swap.Decimals)
+			util.Logger.Infof("Swap token direction %s, sponsor: %s, %s, %s, amount %s, decimals %d", direction, swap.Sponsor, swap.SourceChainErc20Addr, swap.TargetChainToAddr, swap.SourceChainErc20Addr, swap.TargetChainToAddr, swap.Amount, swap.Decimals)
 			swapTx, swapErr := engine.doSwap(&swap, swapPairInstance)
 
 			writeDBErr = func() error {
@@ -443,7 +443,7 @@ func (engine *SwapEngine) doSwap(swap *model.Swap, swapPairInstance *SwapPairIns
 	if swap.Direction == SwapMain2Side {
 		sideClientMutex.Lock()
 		defer sideClientMutex.Unlock()
-		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(swap.StartTxHash), swapPairInstance.MainChainErc20Addr, swapPairInstance.SideChainErc20Addr, amount, engine.sideSwapAgentABI)
+		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(swap.StartTxHash), ethcom.HexToAddress(swap.SourceChainErc20Addr), ethcom.HexToAddress(swap.TargetChainToAddr), amount, engine.sideSwapAgentABI)
 		if err != nil {
 			return nil, err
 		}
@@ -472,7 +472,7 @@ func (engine *SwapEngine) doSwap(swap *model.Swap, swapPairInstance *SwapPairIns
 	} else {
 		mainClientMutex.Lock()
 		defer mainClientMutex.Unlock()
-		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(swap.StartTxHash), swapPairInstance.MainChainErc20Addr, swapPairInstance.SideChainErc20Addr, amount, engine.mainSwapAgentABI)
+		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(swap.StartTxHash), ethcom.HexToAddress(swap.SourceChainErc20Addr), ethcom.HexToAddress(swap.TargetChainToAddr), amount, engine.mainSwapAgentABI)
 		signedTx, err := buildSignedTransaction(engine.mainSwapAgent, engine.mainClient, data, engine.mainPrivateKey)
 		if err != nil {
 			return nil, err
