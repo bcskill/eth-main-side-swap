@@ -174,27 +174,31 @@ func (engine *SwapEngine) createSwap(txEventLog *model.SwapStartTxLog) *model.Sw
 		swapDirection = SwapSide2Main
 	}
 
-	var bep20Addr ethcom.Address
-	var erc20Addr ethcom.Address
+	var mainSourceErc20Addr ethcom.Address
+	var sideSourceErc20Addr ethcom.Address
+	var targetChainErc20Addr ethcom.Address
+
 	var ok bool
 	decimals := 0
 	var symbol string
 	swapStatus := SwapQuoteRejected
 	err := func() error {
 		if txEventLog.Chain == common.ChainMain {
-			erc20Addr = ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)
-			if bep20Addr, ok = engine.main20ToSide20[ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)]; !ok {
+			mainSourceErc20Addr = ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)
+			if sideSourceErc20Addr, ok = engine.main20ToSide20[ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)]; !ok {
 				return fmt.Errorf("unsupported main token contract address: %s", txEventLog.SourceChainErc20Addr)
 			}
+			targetChainErc20Addr = sideSourceErc20Addr
 		} else {
-			bep20Addr = ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)
-			if erc20Addr, ok = engine.side20ToMain20[ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)]; !ok {
+			sideSourceErc20Addr = ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)
+			if mainSourceErc20Addr, ok = engine.side20ToMain20[ethcom.HexToAddress(txEventLog.SourceChainErc20Addr)]; !ok {
 				return fmt.Errorf("unsupported side token contract address: %s", txEventLog.SourceChainErc20Addr)
 			}
+			targetChainErc20Addr = mainSourceErc20Addr
 		}
-		pairInstance, err := engine.GetSwapPairInstance(erc20Addr)
+		pairInstance, err := engine.GetSwapPairInstance(mainSourceErc20Addr)
 		if err != nil {
-			return fmt.Errorf("failed to get swap pair for bep20 %s, error %s", bep20Addr.String(), err.Error())
+			return fmt.Errorf("failed to get swap pair for target erc20 %s, error %s", targetChainErc20Addr.String(), err.Error())
 		}
 		decimals = pairInstance.Decimals
 		symbol = pairInstance.Symbol
@@ -220,7 +224,7 @@ func (engine *SwapEngine) createSwap(txEventLog *model.SwapStartTxLog) *model.Sw
 		Status:      swapStatus,
 		Sponsor:     sponsor,
 		SourceChainErc20Addr:   ethcom.HexToAddress(txEventLog.SourceChainErc20Addr).String(),
-		TargetChainErc20Addr:   ethcom.HexToAddress(txEventLog.TargetChainErc20Addr).String(),
+		TargetChainErc20Addr:   targetChainErc20Addr.String(),
 		TargetChainToAddr:      ethcom.HexToAddress(txEventLog.TargetChainToAddr).String(),
 		Symbol:      symbol,
 		Amount:      amount,
@@ -297,14 +301,22 @@ func (engine *SwapEngine) swapInstanceDaemon(direction common.SwapDirection) {
 
 		for _, swap := range swaps {
 			var swapPairInstance *SwapPairIns
+			var mainSourceErc20Addr ethcom.Address
 			var err error
 			retryCheckErr := func() error {
 				if !engine.verifySwap(&swap) {
 					return fmt.Errorf("verify hmac of swap failed: %s", swap.StartTxHash)
 				}
-				swapPairInstance, err = engine.GetSwapPairInstance(ethcom.HexToAddress(swap.SourceChainErc20Addr))
+
+				if swap.Direction == SwapMain2Side {
+					mainSourceErc20Addr = ethcom.HexToAddress(swap.SourceChainErc20Addr)
+				} else {
+					mainSourceErc20Addr = ethcom.HexToAddress(swap.TargetChainErc20Addr)
+				}
+
+				swapPairInstance, err = engine.GetSwapPairInstance(mainSourceErc20Addr)
 				if err != nil {
-					return fmt.Errorf("swap instance for bep20 %s doesn't exist, skip this swap", swap.TargetChainErc20Addr)
+					return fmt.Errorf("swap instance for target erc20 %s doesn't exist, skip this swap", swap.TargetChainErc20Addr)
 				}
 				return nil
 			}()

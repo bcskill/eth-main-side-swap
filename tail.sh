@@ -1,0 +1,1 @@
+tail -f ---disable-inotify ./build/test.log
