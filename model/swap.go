@@ -10,21 +10,20 @@ import (
 
 type SwapStartTxLog struct {
 	Id    int64
-	Chain string `gorm:"not null;index:swap_start_tx_log_chain"`
-	Sponsor string `gorm:"not null;index:swap_sponsor"`
+	Chain string `gorm:"not null;index:swap_main_side_start_txs_chain"`
+	Sponsor string `gorm:"not null;index:swap_main_side_start_txs_sponsor"`
 	SourceChainErc20Addr string `gorm:"not null"`
-	TargetChainErc20Addr string `gorm:"not null"`
 	TargetChainToAddr    string `gorm:"not null"`
 	Amount      string `gorm:"not null"`
 	FeeAmount   string `gorm:"not null"`
 
-	Status       TxStatus `gorm:"not null;index:swap_start_tx_log_status"`
-	TxHash       string   `gorm:"not null;index:swap_start_tx_log_tx_hash"`
+	Status       TxStatus `gorm:"not null;index:swap_main_side_start_txs_status"`
+	TxHash       string   `gorm:"not null;index:swap_main_side_start_txs_tx_hash"`
 	BlockHash    string   `gorm:"not null"`
 	Height       int64    `gorm:"not null"`
 	ConfirmedNum int64    `gorm:"not null"`
 
-	Phase TxPhase `gorm:"not null;index:swap_start_tx_log_phase"`
+	Phase TxPhase `gorm:"not null;index:swap_main_side_start_txs_phase"`
 
 	UpdateTime int64
 	CreateTime int64
