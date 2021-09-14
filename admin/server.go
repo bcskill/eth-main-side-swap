@@ -152,7 +152,7 @@ func (admin *Admin) Endpoints(w http.ResponseWriter, r *http.Request) {
 	}{
 		Endpoints: []string{
 			"/update_swap_pair",
-			"/healthz",
+			"/heights",
 		},
 	}
 
@@ -269,8 +269,46 @@ func (admin *Admin) RetryFailedSwaps(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (admin *Admin) Healthz(w http.ResponseWriter, r *http.Request) {
+func (admin *Admin) Heights(w http.ResponseWriter, r *http.Request) {
+	var mainStartHeight int64
+	var sideStartHeight int64
+	mainBlockLog := model.BlockLog{}
+	err := admin.DB.Where("chain = ?", "Main").Order("height desc").First(&mainBlockLog).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		mainStartHeight = 0
+		util.Logger.Errorf("search main height error, err=%s", err.Error())
+	} else {
+		mainStartHeight = mainBlockLog.Height
+	}
+	sideBlockLog := model.BlockLog{}
+	err = admin.DB.Where("chain = ?", "Side").Order("height desc").First(&sideBlockLog).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		sideStartHeight = 0
+		util.Logger.Errorf("search side height error, err=%s", err.Error())
+	} else {
+		sideStartHeight = sideBlockLog.Height
+	}
+
+	endpoints := struct {
+		MainStartHeight int64 `json:"main_height"`
+		SideStartHeight int64 `json:"side_height"`
+	}{
+		mainStartHeight,
+		sideStartHeight,
+	}
+
+	jsonBytes, err := json.MarshalIndent(endpoints, "", "    ")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(jsonBytes)
+	if err != nil {
+		util.Logger.Errorf("write response error, err=%s", err.Error())
+	}
 }
 
 func (admin *Admin) checkAuth(r *http.Request) ([]byte, error) {
@@ -296,7 +334,7 @@ func (admin *Admin) Serve() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/", admin.Endpoints).Methods("GET")
-	router.HandleFunc("/healthz", admin.Healthz).Methods("GET")
+	router.HandleFunc("/heights", admin.Heights).Methods("GET")
 	router.HandleFunc("/update_swap_pair", admin.UpdateSwapPairHandler).Methods("PUT")
 	router.HandleFunc("/withdraw_token", admin.WithdrawToken).Methods("POST")
 	router.HandleFunc("/retry_failed_swaps", admin.RetryFailedSwaps).Methods("POST")
