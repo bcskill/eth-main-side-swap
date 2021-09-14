@@ -85,7 +85,7 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 	if retrySwap.Direction == SwapMain2Side {
 		sideClientMutex.Lock()
 		defer sideClientMutex.Unlock()
-		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.MainChainErc20Addr, swapPairInstance.SideChainErc20Addr, amount, engine.sideSwapAgentABI)
+		data, err := abiEncodeFillMain2SideSwap(ethcom.HexToHash(retrySwap.StartTxHash), ethcom.HexToAddress(retrySwap.SourceChainErc20Addr), ethcom.HexToAddress(retrySwap.TargetChainToAddr), amount, engine.sideSwapAgentABI)
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +115,7 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 	} else {
 		mainClientMutex.Lock()
 		defer mainClientMutex.Unlock()
-		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(retrySwap.StartTxHash), swapPairInstance.MainChainErc20Addr, swapPairInstance.SideChainErc20Addr, amount, engine.mainSwapAgentABI)
+		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(retrySwap.StartTxHash), ethcom.HexToAddress(retrySwap.SourceChainErc20Addr), ethcom.HexToAddress(retrySwap.TargetChainToAddr), amount, engine.mainSwapAgentABI)
 		signedTx, err := buildSignedTransaction(engine.mainSwapAgent, engine.mainClient, data, engine.mainPrivateKey)
 		if err != nil {
 			return nil, err
@@ -155,7 +155,14 @@ func (engine *SwapEngine) retryFailedSwapsDaemon() {
 				if !valid {
 					return fmt.Errorf("verify hmac of retry swap failed: %s", retrySwap.StartTxHash)
 				}
-				swapPairInstance, err = engine.GetSwapPairInstance(ethcom.HexToAddress(retrySwap.SourceChainErc20Addr))
+				var mainSourceErc20Addr ethcom.Address
+				if retrySwap.Direction == SwapMain2Side {
+					mainSourceErc20Addr = ethcom.HexToAddress(retrySwap.SourceChainErc20Addr)
+				} else {
+					mainSourceErc20Addr = ethcom.HexToAddress(retrySwap.TargetChainErc20Addr)
+				}
+
+				swapPairInstance, err = engine.GetSwapPairInstance(mainSourceErc20Addr)
 				if err != nil {
 					return fmt.Errorf("failed to get swap instance for erc20 %s, err: %s, skip this swap", retrySwap.SourceChainErc20Addr, err.Error())
 				}
@@ -433,6 +440,7 @@ func (engine *SwapEngine) trackRetrySwapTxDaemon() {
 								return err
 							}
 							swap.Status = SwapSuccess
+							swap.FillTxHash = retrySwapTx.RetryFillSwapTxHash
 							swap.Log = fmt.Sprintf("retry success, retry txHash %s", retrySwapTx.RetryFillSwapTxHash)
 							engine.updateSwap(tx, swap)
 						}
