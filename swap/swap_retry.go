@@ -89,56 +89,77 @@ func (engine *SwapEngine) doRetrySwap(retrySwap *model.RetrySwap, swapPairInstan
 		if err != nil {
 			return nil, err
 		}
-		signedTx, err := buildSignedTransaction(engine.sideSwapAgent, engine.sideClient, data, engine.sidePrivateKey)
-		if err != nil {
-			return nil, err
+		status := model.FillRetryTxCreated
+		signedTx, buildErr := buildSignedTransaction(engine.sideSwapAgent, engine.sideClient, data, engine.sidePrivateKey)
+		retryFillSwapTxHash := ""
+		gasPrice := ""
+		if buildErr != nil {
+			util.Logger.Errorf("buildSignedTransaction tx to Side error: %s", buildErr.Error())
+			status = model.FillRetryTxFailed
+		} else {
+			retryFillSwapTxHash = signedTx.Hash().String()
+			gasPrice = signedTx.GasPrice().String()
 		}
 		retrySwapTx := &model.RetrySwapTx{
 			RetrySwapID:         retrySwap.ID,
 			StartTxHash:         retrySwap.StartTxHash,
 			Direction:           retrySwap.Direction,
-			RetryFillSwapTxHash: signedTx.Hash().String(),
-			Status:              model.FillRetryTxCreated,
-			GasPrice:            signedTx.GasPrice().String(),
+			RetryFillSwapTxHash: retryFillSwapTxHash,
+			Status:              status,
+			GasPrice:            gasPrice,
 		}
 		err = engine.insertRetrySwapTxsToDB(retrySwapTx)
 		if err != nil {
 			return nil, err
 		}
-		err = engine.sideClient.SendTransaction(context.Background(), signedTx)
-		if err != nil {
-			util.Logger.Errorf("broadcast tx to Side error: %s", err.Error())
-			return nil, err
+		if status == model.FillRetryTxCreated {
+			err = engine.sideClient.SendTransaction(context.Background(), signedTx)
+			if err != nil {
+				util.Logger.Errorf("broadcast tx to Side error: %s", err.Error())
+				return nil, err
+			}
+			util.Logger.Infof("Send transaction to Side, %s/%s", engine.config.ChainConfig.SideExplorerUrl, signedTx.Hash().String())
 		}
-		util.Logger.Infof("Send transaction to Side, %s/%s", engine.config.ChainConfig.SideExplorerUrl, signedTx.Hash().String())
-		return retrySwapTx, nil
+		return retrySwapTx, buildErr
 	} else {
 		mainClientMutex.Lock()
 		defer mainClientMutex.Unlock()
 		data, err := abiEncodeFillSide2MainSwap(ethcom.HexToHash(retrySwap.StartTxHash), ethcom.HexToAddress(retrySwap.SourceChainErc20Addr), ethcom.HexToAddress(retrySwap.TargetChainToAddr), amount, engine.mainSwapAgentABI)
-		signedTx, err := buildSignedTransaction(engine.mainSwapAgent, engine.mainClient, data, engine.mainPrivateKey)
 		if err != nil {
 			return nil, err
+		}
+		status := model.FillRetryTxCreated
+		signedTx, buildErr := buildSignedTransaction(engine.mainSwapAgent, engine.mainClient, data, engine.mainPrivateKey)
+		retryFillSwapTxHash := ""
+		gasPrice := ""
+		if buildErr != nil {
+			util.Logger.Errorf("buildSignedTransaction tx to Main error: %s", buildErr.Error())
+			status = model.FillRetryTxFailed
+		} else {
+			retryFillSwapTxHash = signedTx.Hash().String()
+			gasPrice = signedTx.GasPrice().String()
 		}
 		retrySwapTx := &model.RetrySwapTx{
 			RetrySwapID:         retrySwap.ID,
 			StartTxHash:         retrySwap.StartTxHash,
 			Direction:           retrySwap.Direction,
-			RetryFillSwapTxHash: signedTx.Hash().String(),
-			GasPrice:            signedTx.GasPrice().String(),
+			RetryFillSwapTxHash: retryFillSwapTxHash,
+			GasPrice:            gasPrice,
 		}
 		err = engine.insertRetrySwapTxsToDB(retrySwapTx)
 		if err != nil {
 			return nil, err
 		}
-		err = engine.mainClient.SendTransaction(context.Background(), signedTx)
-		if err != nil {
-			util.Logger.Errorf("broadcast tx to Main error: %s", err.Error())
-			return nil, err
-		} else {
-			util.Logger.Infof("Send transaction to Main, %s/%s", engine.config.ChainConfig.MainExplorerUrl, signedTx.Hash().String())
+		if status == model.FillRetryTxCreated {
+			err = engine.mainClient.SendTransaction(context.Background(), signedTx)
+			if err != nil {
+				util.Logger.Errorf("broadcast tx to Main error: %s", err.Error())
+				return nil, err
+			} else {
+				util.Logger.Infof("Send transaction to Main, %s/%s", engine.config.ChainConfig.MainExplorerUrl, signedTx.Hash().String())
+			}
 		}
-		return retrySwapTx, nil
+		return retrySwapTx, buildErr
 	}
 }
 
@@ -194,7 +215,7 @@ func (engine *SwapEngine) retryFailedSwapsDaemon() {
 				}
 				if retrySwap.Status == RetrySwapSending {
 					var retrySwapTx model.RetrySwapTx
-					engine.db.Where("start_swap_tx_hash = ?", retrySwap.StartTxHash).First(&retrySwapTx)
+					engine.db.Where("start_tx_hash = ?", retrySwap.StartTxHash).First(&retrySwapTx)
 					if retrySwapTx.RetryFillSwapTxHash == "" {
 						util.Logger.Infof("retry the retrySwap, start tx hash %s, symbol %s, amount %s, direction",
 							retrySwap.StartTxHash, retrySwap.Symbol, retrySwap.Amount, retrySwap.Direction)
@@ -431,7 +452,6 @@ func (engine *SwapEngine) trackRetrySwapTxDaemon() {
 								return err
 							}
 							retrySwap.Status = RetrySwapSuccess
-							retrySwap.ErrorMsg = "fill retry swap tx is failed"
 							engine.updateRetrySwap(tx, retrySwap)
 
 							swap, err := engine.getSwapByStartTxHash(tx, retrySwapTx.StartTxHash)

@@ -7,12 +7,12 @@
     "local_hmac_key": "",
     "local_side_private_key": "9b18911f769f78c4c035848aff86a020a608154fee17c9a1553f65d5679065ea",
     "local_main_private_key": "9b18911f769f78c4c035848aff86a020a608154fee17c9a1553f65d5679065ea",
-	"local_admin_api_key":"",
-	"local_admin_secret_key":""
+	"local_admin_api_key":"MTyflwkaRXE7oeLOTBCvtR3yXld4vORf",
+	"local_admin_secret_key":"f6a456f413eb34ed09d3505d6377cebb96efc3ce613d4a0c397082d6701146ba"
   },
   "db_config": {
-    "dialect": "sqlite3",
-    "db_path": "./build/test.db"
+    "dialect": "mysql",
+    "db_path": "matchuser:F3ty2Ky89MkmX2Lx@tcp(rm-2ze03q80fd5l4xs348o.mysql.rds.aliyuncs.com)/main_side_swap?charset=utf8&parseTime=true"
   },
   "chain_config": {
     "balance_monitor_interval": 60,
@@ -20,10 +20,10 @@
     "main_observer_fetch_error_interval": 5,
     "main_observer_fetch_interval": 3,
     "main_period_diff_height": 30,
-    "main_start_height": 324027,
-    "main_provider": "http://172.17.116.163:8545",
+    "main_start_height": 346320,
+    "main_provider": "http://39.106.167.166:8545",
     "main_confirm_num": 1,
-    "main_swap_agent_addr": "0x4eB3E7Db7028e52966C449D1CC1986955E66C880",
+    "main_swap_agent_addr": "0x14BcF2914bDb49901AA6E21240B7649c8bFa5f58",
     "main_explorer_url": "https://goerli.etherscan.io/tx",
     "main_max_track_retry": 600,
     "main_alert_threshold": "1000000000000000000",
@@ -32,10 +32,10 @@
     "side_observer_fetch_error_interval": 5,
     "side_observer_fetch_interval": 15,
     "side_period_diff_height": 30,
-    "side_start_height": 5490239,
+    "side_start_height": 5494694,
     "side_provider": "http://47.252.27.83:19000",
     "side_confirm_num": 2,
-    "side_swap_agent_addr":"0x1E1367C6E30cc54f891660Cec9b5B1Ff1FdFf231",
+    "side_swap_agent_addr":"0x95598bf2F6842aFa7C136D691B9c0Db5CD5C296A",
     "side_explorer_url": "https://goerli.etherscan.io/tx",
     "side_max_track_retry": 60,
     "side_alert_threshold": "1000000000000000000",
