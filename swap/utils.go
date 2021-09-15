@@ -128,7 +128,7 @@ func buildSignedTransaction(contract ethcom.Address, mainClient *ethclient.Clien
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas needed: %v", err)
 	}
-
+	gasLimit += gasLimit / 2
 	rawTx := types.NewTransaction(nonce, contract, value, gasLimit, gasPrice, txInput)
 	signedTx, err := txOpts.Signer(txOpts.From, rawTx)
 	if err != nil {
