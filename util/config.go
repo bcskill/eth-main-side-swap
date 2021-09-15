@@ -113,6 +113,7 @@ type ChainConfig struct {
 	SideStartHeight              int64  `json:"side_start_height"`
 	SideProvider                 string `json:"side_provider"`
 	SideConfirmNum               int64  `json:"side_confirm_num"`
+	SideLostRangeNum             int64  `json:"side_lost_range_num"`
 	SideSwapAgentAddr            string `json:"side_swap_agent_addr"`
 	SideExplorerUrl              string `json:"side_explorer_url"`
 	SideMaxTrackRetry            int64  `json:"side_max_track_retry"`
@@ -125,6 +126,7 @@ type ChainConfig struct {
 	MainStartHeight              int64  `json:"main_start_height"`
 	MainProvider                 string `json:"main_provider"`
 	MainConfirmNum               int64  `json:"main_confirm_num"`
+	MainLostRangeNum             int64  `json:"main_lost_range_num"`
 	MainSwapAgentAddr            string `json:"main_swap_agent_addr"`
 	MainExplorerUrl              string `json:"main_explorer_url"`
 	MainMaxTrackRetry            int64  `json:"main_max_track_retry"`

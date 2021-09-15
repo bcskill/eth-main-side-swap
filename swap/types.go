@@ -50,6 +50,7 @@ const (
 	TxFailedStatus = 0x00
 
 	MaxUpperBound = "999999999999999999999999999999999999"
+	TransactionReceiptMissed = "not found"
 )
 
 var mainClientMutex sync.RWMutex

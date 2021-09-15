@@ -49,6 +49,7 @@ type SwapFillTx struct {
 	ConsumedFeeAmount string
 	Height            int64
 	Status            FillTxStatus `gorm:"not null"`
+	TrackRetryHeight  int64
 	TrackRetryCounter int64
 }
 

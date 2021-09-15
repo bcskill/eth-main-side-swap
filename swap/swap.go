@@ -463,12 +463,18 @@ func (engine *SwapEngine) doSwap(swap *model.Swap, swapPairInstance *SwapPairIns
 		if err != nil {
 			return nil, err
 		}
+		block, err := engine.sideClient.BlockByNumber(context.Background(), nil)
+		if err != nil {
+			util.Logger.Debugf("Side, query block failed: %s", err.Error())
+			return nil, err
+		}
 		swapTx := &model.SwapFillTx{
 			Direction:       SwapMain2Side,
 			StartSwapTxHash: swap.StartTxHash,
 			FillSwapTxHash:  signedTx.Hash().String(),
 			GasPrice:        signedTx.GasPrice().String(),
 			Status:          model.FillTxCreated,
+			TrackRetryHeight:block.Number().Int64(),
 		}
 		err = engine.insertSwapTxToDB(swapTx)
 		if err != nil {
@@ -489,12 +495,18 @@ func (engine *SwapEngine) doSwap(swap *model.Swap, swapPairInstance *SwapPairIns
 		if err != nil {
 			return nil, err
 		}
+		block, err := engine.mainClient.BlockByNumber(context.Background(), nil)
+		if err != nil {
+			util.Logger.Debugf("Side, query block failed: %s", err.Error())
+			return nil, err
+		}
 		swapTx := &model.SwapFillTx{
 			Direction:       SwapSide2Main,
 			StartSwapTxHash: swap.StartTxHash,
 			GasPrice:        signedTx.GasPrice().String(),
 			FillSwapTxHash:  signedTx.Hash().String(),
 			Status:          model.FillTxCreated,
+			TrackRetryHeight:block.Number().Int64(),
 		}
 		err = engine.insertSwapTxToDB(swapTx)
 		if err != nil {
@@ -588,26 +600,52 @@ func (engine *SwapEngine) trackSwapTxDaemon() {
 
 				var client *ethclient.Client
 				var chainName string
+				var lostRangeNum int64
+				var confirmNum int64
 				if swapTx.Direction == SwapSide2Main {
 					client = engine.mainClient
 					chainName = "Main"
+					lostRangeNum = engine.config.ChainConfig.MainLostRangeNum
+					confirmNum = engine.config.ChainConfig.MainConfirmNum
 				} else {
 					client = engine.sideClient
 					chainName = "Side"
+					lostRangeNum = engine.config.ChainConfig.SideLostRangeNum
+					confirmNum = engine.config.ChainConfig.SideConfirmNum
 				}
 				var txRecipient *types.Receipt
+				txMissed := false
+				var currentBlockHeight int64
 				queryTxStatusErr := func() error {
 					block, err := client.BlockByNumber(context.Background(), nil)
 					if err != nil {
 						util.Logger.Debugf("%s, query block failed: %s", chainName, err.Error())
 						return err
 					}
+					currentBlockHeight = block.Number().Int64()
 					txRecipient, err = client.TransactionReceipt(context.Background(), ethcom.HexToHash(swapTx.FillSwapTxHash))
 					if err != nil {
-						util.Logger.Debugf("%s, query tx failed: %s", chainName, err.Error())
-						return err
+						if strings.EqualFold(err.Error(), TransactionReceiptMissed) {
+							swapFoundTxs := make([]model.SwapFillTx, 0)
+							engine.db.Where("fill_swap_tx_hash = ?", swapTx.FillSwapTxHash).Find(&swapFoundTxs)
+							if len(swapFoundTxs) == 0 {
+								return fmt.Errorf("%s, swap_fill_txs data lost fill_swap_tx_hash: %s", chainName, swapTx.FillSwapTxHash)
+							}
+							if currentBlockHeight > (swapFoundTxs[0].TrackRetryHeight + lostRangeNum) {
+								txMissed = true
+								util.Logger.Debugf("%s, transaction missed, txHash: %s", chainName, swapTx.FillSwapTxHash)
+								return nil
+							} else {
+								util.Logger.Debugf("%s, No transaction found, continue to wait", chainName)
+								return err
+							}
+
+						} else {
+							util.Logger.Debugf("%s, query tx failed: %s", chainName, err.Error())
+							return err
+						}
 					}
-					if block.Number().Int64() < txRecipient.BlockNumber.Int64()+engine.config.ChainConfig.MainConfirmNum {
+					if currentBlockHeight < (txRecipient.BlockNumber.Int64() + confirmNum) {
 						return fmt.Errorf("%s, swap tx is still not finalized", chainName)
 					}
 					return nil
@@ -625,15 +663,13 @@ func (engine *SwapEngine) trackSwapTxDaemon() {
 								"updated_at":          time.Now().Unix(),
 							})
 					} else {
-						txFee := big.NewInt(1).Mul(gasPrice, big.NewInt(int64(txRecipient.GasUsed))).String()
-						if txRecipient.Status == TxFailedStatus {
-							util.Logger.Infof(fmt.Sprintf("fill swap tx is failed, chain %s, txHash: %s", chainName, txRecipient.TxHash.String()))
-							util.SendTelegramMessage(fmt.Sprintf("fill swap tx is failed, chain %s, txHash: %s", chainName, txRecipient.TxHash.String()))
+						if txMissed {
+							util.Logger.Infof(fmt.Sprintf("fill swap tx is missed, chain %s, fillTxHash: %s", chainName, swapTx.FillSwapTxHash))
+							util.SendTelegramMessage(fmt.Sprintf("fill swap tx is missed, chain %s, fillTxHash: %s", chainName, swapTx.FillSwapTxHash))
 							tx.Model(model.SwapFillTx{}).Where("id = ?", swapTx.ID).Updates(
 								map[string]interface{}{
 									"status":              model.FillTxFailed,
-									"height":              txRecipient.BlockNumber.Int64(),
-									"consumed_fee_amount": txFee,
+									"height":              currentBlockHeight,
 									"updated_at":          time.Now().Unix(),
 								})
 
@@ -643,25 +679,47 @@ func (engine *SwapEngine) trackSwapTxDaemon() {
 								return err
 							}
 							swap.Status = SwapSendFailed
-							swap.Log = "fill tx is failed"
+							swap.Log = "Transaction lost"
 							engine.updateSwap(tx, swap)
 						} else {
-							util.Logger.Infof(fmt.Sprintf("fill swap tx is success, chain %s, txHash: %s", chainName, txRecipient.TxHash.String()))
-							tx.Model(model.SwapFillTx{}).Where("id = ?", swapTx.ID).Updates(
-								map[string]interface{}{
-									"status":              model.FillTxSuccess,
-									"height":              txRecipient.BlockNumber.Int64(),
-									"consumed_fee_amount": txFee,
-									"updated_at":          time.Now().Unix(),
-								})
+							txFee := big.NewInt(1).Mul(gasPrice, big.NewInt(int64(txRecipient.GasUsed))).String()
+							if txRecipient.Status == TxFailedStatus {
+								util.Logger.Infof(fmt.Sprintf("fill swap tx is failed, chain %s, txHash: %s", chainName, txRecipient.TxHash.String()))
+								util.SendTelegramMessage(fmt.Sprintf("fill swap tx is failed, chain %s, txHash: %s", chainName, txRecipient.TxHash.String()))
+								tx.Model(model.SwapFillTx{}).Where("id = ?", swapTx.ID).Updates(
+									map[string]interface{}{
+										"status":              model.FillTxFailed,
+										"height":              txRecipient.BlockNumber.Int64(),
+										"consumed_fee_amount": txFee,
+										"updated_at":          time.Now().Unix(),
+									})
 
-							swap, err := engine.getSwapByStartTxHash(tx, swapTx.StartSwapTxHash)
-							if err != nil {
-								tx.Rollback()
-								return err
+								swap, err := engine.getSwapByStartTxHash(tx, swapTx.StartSwapTxHash)
+								if err != nil {
+									tx.Rollback()
+									return err
+								}
+								swap.Status = SwapSendFailed
+								swap.Log = "fill tx is failed"
+								engine.updateSwap(tx, swap)
+							} else {
+								util.Logger.Infof(fmt.Sprintf("fill swap tx is success, chain %s, txHash: %s", chainName, txRecipient.TxHash.String()))
+								tx.Model(model.SwapFillTx{}).Where("id = ?", swapTx.ID).Updates(
+									map[string]interface{}{
+										"status":              model.FillTxSuccess,
+										"height":              txRecipient.BlockNumber.Int64(),
+										"consumed_fee_amount": txFee,
+										"updated_at":          time.Now().Unix(),
+									})
+
+								swap, err := engine.getSwapByStartTxHash(tx, swapTx.StartSwapTxHash)
+								if err != nil {
+									tx.Rollback()
+									return err
+								}
+								swap.Status = SwapSuccess
+								engine.updateSwap(tx, swap)
 							}
-							swap.Status = SwapSuccess
-							engine.updateSwap(tx, swap)
 						}
 					}
 					return tx.Commit().Error
