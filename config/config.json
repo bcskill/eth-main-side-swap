@@ -54,9 +54,9 @@
     "compress": false
   },
   "alert_config": {
-    "telegram_bot_id": "",
-    "telegram_chat_id": "",
-    "block_update_timeout": 10
+    "telegram_bot_id": "2af6ca53-d804-49cc-9200-5f902db0a4d5",
+    "telegram_chat_id": "1",
+    "block_update_timeout": 50
   },
   "admin_config": {
     "listen_addr": ":8000"

@@ -293,6 +293,7 @@ func (ob *Observer) Alert() {
 		curOtherChainBlockLog, err := ob.GetCurrentBlockLog()
 		if err != nil {
 			util.Logger.Errorf("get current block log error, err=%s", err.Error())
+			util.SendTelegramMessage(err.Error())
 			time.Sleep(common.ObserverAlertInterval)
 
 			continue

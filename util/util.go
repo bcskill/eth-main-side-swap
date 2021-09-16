@@ -1,10 +1,11 @@
 package util
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 )
 
 var tgAlerter TgAlerter
@@ -21,29 +22,54 @@ func InitTgAlerter(cfg AlertConfig) {
 	}
 }
 
+type MessageInfo struct {
+	MsgType  string `json:"msgtype"`
+	Text   TextInfo    `json:"text"`
+}
+
+type TextInfo struct {
+	Content  string `json:"content"`
+	MentionedList []string `json:"mentioned_list"`
+	MentionedMobileList    []string `json:"mentioned_mobile_list"`
+}
+
 func SendTelegramMessage(msg string) {
 	if tgAlerter.BotId == "" || tgAlerter.ChatId == "" || msg == "" {
 		return
 	}
-	msg = fmt.Sprintf("bsc-eth-swap-backend alert: %s", msg)
-	endPoint := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", tgAlerter.BotId)
-	formData := url.Values{
-		"chat_id":    {tgAlerter.ChatId},
-		"parse_mode": {"html"},
-		"text":       {msg},
+	msg = fmt.Sprintf("eth-main-side-swap-backend alert: %s", msg)
+	endPoint := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=%s", tgAlerter.BotId)
+
+	textInfo := TextInfo{ Content: msg, MentionedList: []string{"@all"}, MentionedMobileList: []string{"@all"}}
+	postInfo := MessageInfo {
+		MsgType: "text",
+		Text: textInfo,
 	}
-	Logger.Infof("send tg message, bot_id=%s, chat_id=%s, msg=%s", tgAlerter.BotId, tgAlerter.ChatId, msg)
-	res, err := http.PostForm(endPoint, formData)
+	jsonBytes, err := json.Marshal(postInfo)
 	if err != nil {
-		Logger.Errorf("send telegram message error, bot_id=%s, chat_id=%s, msg=%s, err=%s", tgAlerter.BotId, tgAlerter.ChatId, msg, err.Error())
+		Logger.Errorf("send message error=%s",  err)
+		return
+	}
+	Logger.Infof("send tg message, msg=%s",  msg)
+	req, err := http.NewRequest("POST", endPoint, bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		Logger.Errorf("send message error=%s",  err)
 		return
 	}
 
-	bodyBytes, err := ioutil.ReadAll(res.Body)
-	defer res.Body.Close()
-	if err != nil {
-		Logger.Errorf("read http response error, err=%s", err.Error())
+	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil{
+		Logger.Errorf("send message error=%s",  err)
 		return
 	}
-	Logger.Infof("tg response: %s", string(bodyBytes))
+	resBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		Logger.Errorf("send message error=%s",  err)
+		return
+	}
+	Logger.Infof("response, msg=%s",  string(resBytes))
+
+	defer resp.Body.Close()
 }
